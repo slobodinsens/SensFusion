@@ -6,6 +6,6 @@ import androidx.appcompat.app.AppCompatActivity
 class EmailPassword : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.emailpassword)
+        setContentView(R.layout.email_password)
     }
 }

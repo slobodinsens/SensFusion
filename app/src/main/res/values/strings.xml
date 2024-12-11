@@ -1,4 +1,7 @@
 <resources>
     <string name="app_name">SensFusion</string>
     <string name="logo_description" />
+    <string name="email_hint">Enter your email</string>
+    <string name="password_hint">Enter your password</string>
+    <string name="submit">Submit</string>
 </resources>

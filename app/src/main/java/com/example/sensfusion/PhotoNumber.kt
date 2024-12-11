@@ -13,7 +13,7 @@ class PhotoNumber : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_photo_number)
+        setContentView(R.layout.photo_number)
 
         // Инициализация компонентов
         val editTextNumber: EditText = findViewById(R.id.editTextNumber)
