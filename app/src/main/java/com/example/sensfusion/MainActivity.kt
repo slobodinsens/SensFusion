@@ -35,13 +35,15 @@ class MainActivity : AppCompatActivity() {
         // Обработчик нажатия на кнопку Stolen Car
         stolenCarButton.setOnClickListener {
             it.startAnimation(buttonClickAnimation)
-            // Логика для Stolen Car (замените этот комментарий вашим кодом)
+            val intent = Intent(this, StolenCars::class.java)
+            startActivity(intent)
         }
 
         // Обработчик нажатия на кнопку Car Number
         carNumberButton.setOnClickListener {
             it.startAnimation(buttonClickAnimation)
-            // Логика для Car Number (замените этот комментарий вашим кодом)
+            val intent = Intent(this, PhotoNumber::class.java)
+            startActivity(intent)
         }
     }
 }

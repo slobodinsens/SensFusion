@@ -1,15 +1,11 @@
 package com.example.sensfusion
 
-
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.VideoView
 import androidx.appcompat.app.AppCompatActivity
-import com.example.sensfusion.R
-
-
 
 class SplashActivity : AppCompatActivity() {
     @SuppressLint("MissingInflatedId")
@@ -17,21 +13,25 @@ class SplashActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
 
-        // Настройка VideoView для воспроизведения MP4
+        // Инициализация VideoView
         val videoView = findViewById<VideoView>(R.id.videoView)
-        val videoUri = Uri.parse("android.resource://${packageName}/${R.raw.splash_video}") // Замените "splash_video" на имя вашего файла MP4
+
+        // Указываем путь к видео
+        val videoUri = Uri.parse("android.resource://${packageName}/${R.raw.splash_video}")
         videoView.setVideoURI(videoUri)
 
-        // Запускаем видео
+        // Настройка зацикливания
         videoView.setOnPreparedListener { mediaPlayer ->
-            mediaPlayer.isLooping = true // Включить зацикливание, если нужно
+            mediaPlayer.isLooping = true
         }
+
+        // Запуск видео
         videoView.start()
 
-        // Переход к MainActivity после 3 секунд
+        // Переход к MainActivity через 3 секунды
         videoView.postDelayed({
             startActivity(Intent(this, MainActivity::class.java))
             finish()
-        }, 3000) // 3000ms = 3 секунды
+        }, 3000)
     }
 }

@@ -1,47 +1,45 @@
-@file:Suppress("DEPRECATION")
-
 package com.example.sensfusion
 
-import android.Manifest
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
-import android.provider.MediaStore
+import android.util.Log
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
+import androidx.camera.core.Camera
+import androidx.camera.core.CameraSelector
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 
 class StolenCars : AppCompatActivity() {
-    private val CAMERA_REQUEST_CODE = 100
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_stolen_cars)
 
-        // Проверка разрешений
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            // Запрос разрешения на использование камеры
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_REQUEST_CODE)
-        } else {
-            // Запуск камеры
-            openCamera()
-        }
-    }
+        val previewView = findViewById<PreviewView>(R.id.previewView)
 
-    private fun openCamera() {
-        val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        if (cameraIntent.resolveActivity(packageManager) != null) {
-            startActivityForResult(cameraIntent, CAMERA_REQUEST_CODE)
-        }
-    }
+        // Инициализируем CameraX
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
+        cameraProviderFuture.addListener({
+            try {
+                val cameraProvider = cameraProviderFuture.get()
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == CAMERA_REQUEST_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            // Разрешение получено, запускаем камеру
-            openCamera()
-        } else {
-            // Разрешение отклонено
-            finish() // Закрыть активность
-        }
+                // Выбираем заднюю камеру
+                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+
+                // Настройка предварительного просмотра
+                val preview = androidx.camera.core.Preview.Builder().build().also {
+                    it.setSurfaceProvider(previewView.surfaceProvider)
+                }
+
+                // Привязываем камеру к жизненному циклу
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(this, cameraSelector, preview)
+
+            } catch (e: Exception) {
+                Log.e("CameraX", "Ошибка запуска камеры", e)
+                Toast.makeText(this, "Не удалось открыть камеру", Toast.LENGTH_SHORT).show()
+            }
+        }, ContextCompat.getMainExecutor(this))
     }
 }
