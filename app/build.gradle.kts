@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.sf_new"
+    namespace = "com.example.sensfusion"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.sf_new"
+        applicationId = "com.example.sensfusion"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
