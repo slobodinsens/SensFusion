@@ -39,4 +39,17 @@
         android:layout_marginTop="16dp"
         android:text="Photo" />
 
+    <ImageView
+        android:id="@+id/selectedImageView"
+        android:layout_width="match_parent"
+        android:layout_height="354dp"
+        android:scaleType="fitCenter"
+        android:contentDescription="Selected Image" />
+
+    <Button
+        android:id="@+id/send_photo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="SEND" />
+
 </LinearLayout>
