@@ -41,9 +41,12 @@ class MainActivity : AppCompatActivity() {
 
         // Обработчик нажатия на кнопку Car Number
         carNumberButton.setOnClickListener {
-            it.startAnimation(buttonClickAnimation)
+            it.startAnimation(buttonClickAnimation) // Анимация кнопки
+
+            // Переход на другую активность (CarNumberActivity)
             val intent = Intent(this, PhotoNumber::class.java)
             startActivity(intent)
         }
+
     }
 }
