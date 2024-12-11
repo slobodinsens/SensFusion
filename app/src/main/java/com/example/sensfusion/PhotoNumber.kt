@@ -2,8 +2,9 @@
 
 package com.example.sensfusion
 
+import android.content.ContentValues
 import android.content.Intent
-import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
@@ -14,58 +15,56 @@ import androidx.appcompat.app.AppCompatActivity
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.text.SimpleDateFormat
+import java.util.*
 
 class PhotoNumber : AppCompatActivity() {
 
-    private val GALLERY_REQUEST_CODE = 101
     private val CAMERA_REQUEST_CODE = 102
+    private val GALLERY_REQUEST_CODE = 103
     private val serverUrl = "http://10.0.0.43:5000/process"
-    private var selectedImageUri: Uri? = null
+    private var photoUri: Uri? = null
     private lateinit var selectedImageView: ImageView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.photo_number)
 
-        // Инициализация компонентов
         selectedImageView = findViewById(R.id.selectedImageView)
-        val sendPhotoButton: Button = findViewById(R.id.send_photo)
-        val openGalleryButton: Button = findViewById(R.id.openCameraButton3)
         val openCameraButton: Button = findViewById(R.id.openCameraButton)
-
-        // Обработчик для выбора фото из галереи
-        openGalleryButton.setOnClickListener {
-            val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-            if (galleryIntent.resolveActivity(packageManager) != null) {
-                startActivityForResult(galleryIntent, GALLERY_REQUEST_CODE)
-            } else {
-                Toast.makeText(this, "No gallery app found.", Toast.LENGTH_SHORT).show()
-            }
-        }
+        val openGalleryButton: Button = findViewById(R.id.openCameraButton3)
+        val sendPhotoButton: Button = findViewById(R.id.send_photo)
 
         // Обработчик для захвата фото с камеры
         openCameraButton.setOnClickListener {
-            val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-            if (cameraIntent.resolveActivity(packageManager) != null) {
+            val uri = createImageUri()
+            if (uri != null) {
+                photoUri = uri
+                val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                    putExtra(MediaStore.EXTRA_OUTPUT, photoUri)
+                }
                 startActivityForResult(cameraIntent, CAMERA_REQUEST_CODE)
             } else {
-                Toast.makeText(this, "No camera app found.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Failed to create image file.", Toast.LENGTH_SHORT).show()
             }
+        }
+
+        // Обработчик для открытия галереи
+        openGalleryButton.setOnClickListener {
+            val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+            startActivityForResult(galleryIntent, GALLERY_REQUEST_CODE)
         }
 
         // Обработчик для отправки фото на сервер
         sendPhotoButton.setOnClickListener {
-            if (selectedImageUri != null) {
-                sendImageToServer(selectedImageUri!!) { response ->
+            photoUri?.let { uri ->
+                sendImageToServer(uri) { response ->
                     runOnUiThread {
                         Toast.makeText(this, response, Toast.LENGTH_SHORT).show()
                     }
                 }
-            } else {
-                Toast.makeText(this, "Please select an image first.", Toast.LENGTH_SHORT).show()
-            }
+            } ?: Toast.makeText(this, "No photo to send.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -73,31 +72,34 @@ class PhotoNumber : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == RESULT_OK) {
             when (requestCode) {
-                GALLERY_REQUEST_CODE -> {
-                    selectedImageUri = data?.data
-                    if (selectedImageUri != null) {
-                        selectedImageView.setImageURI(selectedImageUri)
-                    }
-                }
                 CAMERA_REQUEST_CODE -> {
-                    val photoBitmap: Bitmap? = data?.extras?.get("data") as Bitmap?
-                    if (photoBitmap != null) {
-                        // Отображение фото в ImageView
-                        selectedImageView.setImageBitmap(photoBitmap)
-
-                        // Сохранение изображения для отправки на сервер
-                        selectedImageUri = getImageUri(photoBitmap)
-                    }
+                    photoUri?.let { uri ->
+                        val bitmap = contentResolver.openInputStream(uri)?.use {
+                            BitmapFactory.decodeStream(it)
+                        }
+                        selectedImageView.setImageBitmap(bitmap)
+                    } ?: Toast.makeText(this, "Failed to capture image.", Toast.LENGTH_SHORT).show()
+                }
+                GALLERY_REQUEST_CODE -> {
+                    photoUri = data?.data
+                    photoUri?.let { uri ->
+                        val bitmap = contentResolver.openInputStream(uri)?.use {
+                            BitmapFactory.decodeStream(it)
+                        }
+                        selectedImageView.setImageBitmap(bitmap)
+                    } ?: Toast.makeText(this, "No image selected.", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
-    private fun getImageUri(bitmap: Bitmap): Uri {
-        val bytes = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, bytes)
-        val path = MediaStore.Images.Media.insertImage(contentResolver, bitmap, "CapturedImage", null)
-        return Uri.parse(path)
+    private fun createImageUri(): Uri? {
+        val contentValues = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, "IMG_${getTimeStamp()}.jpg")
+            put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/SensFusion")
+        }
+        return contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
     }
 
     private fun sendImageToServer(imageUri: Uri, callback: (String) -> Unit) {
@@ -131,11 +133,17 @@ class PhotoNumber : AppCompatActivity() {
                 response.use {
                     if (response.isSuccessful) {
                         callback("Image uploaded successfully: ${response.body?.string()}")
-                    } else {
+                    }
+                    else {
                         callback("Error uploading image: ${response.code}")
                     }
                 }
             }
         })
+    }
+
+    private fun getTimeStamp(): String {
+        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault())
+        return timeStamp.format(Date())
     }
 }
