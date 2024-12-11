@@ -1,4 +1,4 @@
-package com.example.SensFusion
+package com.example.sensfusion
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity

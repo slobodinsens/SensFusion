@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.example.sensfusion">
 
     <!-- Разрешения -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -11,14 +12,11 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"  />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-
-
 
     <application
         android:allowBackup="true"
@@ -29,11 +27,8 @@
         android:theme="@style/Theme.SensFusion"
         android:icon="@drawable/sf_recognition"
         tools:targetApi="31"
-        tools:ignore="ExtraText"
-        android:networkSecurityConfig="@xml/network_security_config">
-        android:requestLegacyExternalStorage="true"
-
-
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:requestLegacyExternalStorage="true">
 
         <!-- AdMob App ID -->
         <meta-data
@@ -45,29 +40,31 @@
             android:name="androidx.camera.defaultConfigProvider"
             android:value="androidx.camera.camera2.Camera2Config" />
 
-
         <!-- Splash Activity -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
-            android:theme="@style/Theme.AppCompat.NoActionBar"> <!-- Заставка без ActionBar -->
+            android:theme="@style/Theme.AppCompat.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-
         <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:windowSoftInputMode="adjustPan"> <!-- Здесь добавлено adjustPan -->
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
         </activity>
-
         <!-- Camera Activity -->
-        <activity android:name=".StolenCars" />
+        <activity android:name=".StolenCars"
+            tools:ignore="MissingClass" />
 
+        <!-- EmailPassword Activity -->
         <activity
             android:name=".EmailPassword"
             tools:ignore="MissingClass" />

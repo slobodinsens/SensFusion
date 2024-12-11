@@ -1,12 +1,14 @@
-package com.example.SensFusion
+package com.example.sensfusion
 
-import android.Manifest
+
 import android.content.Intent
 import android.os.Bundle
 import android.view.animation.AnimationUtils
 import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import com.example.sensfusion.R
+
+
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

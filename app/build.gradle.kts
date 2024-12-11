@@ -37,23 +37,26 @@ android {
 
 dependencies {
     // Базовые библиотеки Android
-    implementation ("androidx.appcompat:appcompat:1.6.1")
-    implementation( "androidx.core:core-ktx:1.12.0")
-    implementation ("com.google.android.material:material:1.9.0")
+    implementation (libs.androidx.appcompat.v161)
+    implementation( libs.androidx.core.ktx.v1120)
+    implementation (libs.material)
 
     // ConstraintLayout для макетов
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation(libs.androidx.constraintlayout)
 
     // Анимации
-    implementation ("androidx.interpolator:interpolator:1.0.0")
+    implementation (libs.androidx.interpolator)
 
     // Жизненный цикл (если будете использовать ViewModel или LiveData)
-    implementation ("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
-    implementation ("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.1")
+    implementation (libs.androidx.lifecycle.runtime.ktx.v261)
+    implementation (libs.androidx.lifecycle.viewmodel.ktx)
 
     // RecyclerView (если планируете списки)
-    implementation ("androidx.recyclerview:recyclerview:1.3.1")
+    implementation (libs.androidx.recyclerview)
 
     // Firebase Authentication (если Email и пароль планируете использовать с Firebase)
-    implementation ("com.google.firebase:firebase-auth-ktx:22.1.0")
+    implementation (libs.firebase.auth.ktx)
+
+    implementation (libs.androidx.appcompat)
+    implementation (libs.androidx.constraintlayout.v214)
 }

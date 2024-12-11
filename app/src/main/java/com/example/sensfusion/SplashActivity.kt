@@ -1,12 +1,14 @@
-package com.example.SensFusion
+package com.example.sensfusion
+
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
-import android.widget.ImageView
+import android.widget.VideoView
 import androidx.appcompat.app.AppCompatActivity
-import com.bumptech.glide.Glide // Только для Glide
-import com.example.sf_new.R
+import com.example.sensfusion.R
+
 
 
 class SplashActivity : AppCompatActivity() {
@@ -15,14 +17,19 @@ class SplashActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)
 
-        // Используйте Glide для отображения GIF
-        val gifImageView = findViewById<ImageView>(R.id.gifImageView)
-        Glide.with(this)
-            .load(R.raw.splash) // Укажите ваш GIF
-            .into(gifImageView)
+        // Настройка VideoView для воспроизведения MP4
+        val videoView = findViewById<VideoView>(R.id.videoView)
+        val videoUri = Uri.parse("android.resource://${packageName}/${R.raw.splash_video}") // Замените "splash_video" на имя вашего файла MP4
+        videoView.setVideoURI(videoUri)
 
-        // Задержка перед переходом к главной активности
-        gifImageView.postDelayed({
+        // Запускаем видео
+        videoView.setOnPreparedListener { mediaPlayer ->
+            mediaPlayer.isLooping = true // Включить зацикливание, если нужно
+        }
+        videoView.start()
+
+        // Переход к MainActivity после 3 секунд
+        videoView.postDelayed({
             startActivity(Intent(this, MainActivity::class.java))
             finish()
         }, 3000) // 3000ms = 3 секунды
