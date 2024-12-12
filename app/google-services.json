@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "118067335676",
+    "project_id": "sensfusion-6e7de",
+    "storage_bucket": "sensfusion-6e7de.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:118067335676:android:ccf235a36a340f14322279",
+        "android_client_info": {
+          "package_name": "com.example.sensfusion"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZNM6Zp8kpTLXEn2yzOeEaYC_M4BnftjQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -19,6 +19,10 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
+    <!-- Разрешение для получения уведомлений -->
+    <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -40,6 +44,15 @@
         <meta-data
             android:name="androidx.camera.defaultConfigProvider"
             android:value="androidx.camera.camera2.Camera2Config" />
+
+        <!-- Firebase Messaging Service -->
+        <service
+            android:name=".MyFirebaseMessagingService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 
         <!-- Splash Activity -->
         <activity
@@ -67,10 +80,10 @@
             android:name=".EmailPassword"
             tools:ignore="MissingClass" />
 
+        <!-- PhotoNumber Activity -->
         <activity
             android:name=".PhotoNumber"
             tools:ignore="MissingClass" />
 
     </application>
-
 </manifest>

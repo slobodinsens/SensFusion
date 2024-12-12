@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -60,6 +61,7 @@ dependencies {
 
     // Firebase Authentication (если Email и пароль планируете использовать с Firebase)
     implementation(libs.firebase.auth.ktx)
+    implementation(libs.firebase.messaging.ktx)
 
     // Jetpack Compose
     val composeBom = platform("androidx.compose:compose-bom:2024.10.00")
@@ -84,4 +86,6 @@ dependencies {
     implementation ("androidx.camera:camera-lifecycle:1.3.0")
     implementation ("androidx.camera:camera-view:1.3.0")
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("com.google.firebase:firebase-bom:33.7.0")
+    implementation (libs.firebase.messaging)
 }
