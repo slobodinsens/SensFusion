@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -26,15 +27,18 @@ class PhotoNumber : AppCompatActivity() {
     private val serverUrl = "http://10.0.0.43:5000/process"
     private var photoUri: Uri? = null
     private lateinit var selectedImageView: ImageView
+    private lateinit var inputEditText: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.photo_number)
 
         selectedImageView = findViewById(R.id.selectedImageView)
+        inputEditText = findViewById(R.id.editTextNumber)
         val openCameraButton: Button = findViewById(R.id.openCameraButton)
         val openGalleryButton: Button = findViewById(R.id.openCameraButton3)
         val sendPhotoButton: Button = findViewById(R.id.send_photo)
+        val sendButton: Button = findViewById(R.id.sendButton)
 
         // Обработчик для захвата фото с камеры
         openCameraButton.setOnClickListener {
@@ -56,6 +60,20 @@ class PhotoNumber : AppCompatActivity() {
             startActivityForResult(galleryIntent, GALLERY_REQUEST_CODE)
         }
 
+        // Обработчик для отправки текста на сервер
+        sendButton.setOnClickListener {
+            val text = inputEditText.text.toString().trim()
+            if (text.isNotBlank()) {
+                sendTextToServer(text) { response ->
+                    runOnUiThread {
+                        Toast.makeText(this, response, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } else {
+                Toast.makeText(this, "Введите текст для отправки", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         // Обработчик для отправки фото на сервер
         sendPhotoButton.setOnClickListener {
             photoUri?.let { uri ->
@@ -68,7 +86,12 @@ class PhotoNumber : AppCompatActivity() {
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == RESULT_OK) {
             when (requestCode) {
@@ -102,6 +125,36 @@ class PhotoNumber : AppCompatActivity() {
         return contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
     }
 
+    private fun sendTextToServer(text: String, callback: (String) -> Unit) {
+        val url = "$serverUrl/api/send-text"
+        val requestBody = FormBody.Builder()
+            .add("text", text)
+            .build()
+
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        val client = OkHttpClient()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                e.printStackTrace()
+                callback("Failed to send text")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (response.isSuccessful) {
+                        callback("Text sent successfully: ${response.body?.string()}")
+                    } else {
+                        callback("Error sending text: ${response.code}")
+                    }
+                }
+            }
+        })
+    }
+
     private fun sendImageToServer(imageUri: Uri, callback: (String) -> Unit) {
         val url = "$serverUrl/api/upload-image"
 
@@ -133,8 +186,7 @@ class PhotoNumber : AppCompatActivity() {
                 response.use {
                     if (response.isSuccessful) {
                         callback("Image uploaded successfully: ${response.body?.string()}")
-                    }
-                    else {
+                    } else {
                         callback("Error uploading image: ${response.code}")
                     }
                 }

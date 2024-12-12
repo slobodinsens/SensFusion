@@ -10,7 +10,7 @@
         android:id="@+id/editTextNumber"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Enter 8 characters"
+        android:hint="Car Number"
         android:inputType="text"
         android:maxLength="8"
         android:minHeight="48dp"
