@@ -1,8 +1,17 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <color name="purple_500">#6200EE</color>
     <color name="purple_700">#3700B3</color>
     <color name="teal_200">#03DAC5</color>
     <color name="teal_700">#018786</color>
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
+
+    <color name="red">#D32F2F</color>
+    <color name="blue">#303F9F</color>
+    <color name="green">#4CAF50</color>
+
+
+    <color name="green_dark">#388E3C</color>
+
+    <color name="blue_dark">#1976D2</color>
 </resources>

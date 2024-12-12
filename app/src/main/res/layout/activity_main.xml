@@ -11,11 +11,11 @@
     <!-- Область для логотипа или фото -->
     <ImageView
         android:id="@+id/logoImageView"
-        android:layout_width="200dp"
+        android:layout_width="389dp"
         android:layout_height="200dp"
         android:layout_gravity="center"
-        android:src="@drawable/sf_recognition"
-        android:contentDescription="@string/logo_description" />
+        android:contentDescription="@string/logo_description"
+        android:src="@drawable/sf_recognition" />
 
     <!-- Пространство между логотипом и кнопками -->
     <Space
@@ -32,30 +32,40 @@
         android:weightSum="3"
         android:padding="8dp">
 
+        <!-- Кнопка Settings -->
         <Button
             android:id="@+id/settingsButton"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_height="60dp"
             android:layout_margin="8dp"
-            android:text="Settings" />
+            android:layout_weight="1"
+            android:backgroundTint="@color/green"
+            android:text="Settings"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
 
+        <!-- Кнопка Stolen Car -->
         <Button
             android:id="@+id/stolenCarButton"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="60dp"
             android:layout_weight="1"
             android:layout_margin="8dp"
-            android:text="Stolen car" />
+            android:text="Stolen Car"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:backgroundTint="@color/red" />
 
+        <!-- Кнопка Car Number -->
         <Button
             android:id="@+id/carNumberButton"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="60dp"
             android:layout_weight="1"
             android:layout_margin="8dp"
-            android:text="Car number" />
-
+            android:text="Car Number"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:backgroundTint="@color/blue" />
     </LinearLayout>
-
 </LinearLayout>
