@@ -19,8 +19,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         super.onMessageReceived(remoteMessage)
 
         // Получение данных уведомления
-        val title = remoteMessage.notification?.title ?: "Default Title"
-        val message = remoteMessage.notification?.body ?: "Default Message"
+        val title = remoteMessage.notification?.title ?: "New Notification"
+        val message = remoteMessage.notification?.body ?: "You have a new message."
 
         // Показ уведомления
         showNotification(title, message)
@@ -28,14 +28,18 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     private fun showNotification(title: String, message: String) {
         val channelId = "default_channel"
+        val channelName = "Default Channel"
+        val notificationId = System.currentTimeMillis().toInt()
 
-        // Создание канала уведомлений для Android 8.0+
+        // Создание канала уведомлений для Android 8.0+ (если ещё не создан)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "Default Channel",
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
+                channelName,
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Channel for default notifications"
+            }
             val manager = getSystemService(NotificationManager::class.java)
             manager?.createNotificationChannel(channel)
         }
@@ -56,25 +60,21 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             .setSmallIcon(R.drawable.sf_recognition) // Замените на ваш значок
             .setContentTitle(title)
             .setContentText(message)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .build()
 
+        // Проверка разрешений для Android 13+
         if (ActivityCompat.checkSelfPermission(
                 this,
                 Manifest.permission.POST_NOTIFICATIONS
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
             return
         }
-        NotificationManagerCompat.from(this).notify(System.currentTimeMillis().toInt(), notification)
+
+        // Показ уведомления
+        NotificationManagerCompat.from(this).notify(notificationId, notification)
     }
 }
