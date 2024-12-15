@@ -1,5 +1,6 @@
 package com.example.sensfusion
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.*
 import android.util.AttributeSet
@@ -23,8 +24,30 @@ class OverlayView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
-    private val path = Path()
+    private val boxPaint = Paint().apply {
+        color = Color.RED
+        style = Paint.Style.STROKE
+        strokeWidth = 5f
+        isAntiAlias = true
+    }
 
+    private val textPaint = Paint().apply {
+        color = Color.YELLOW
+        textSize = 40f
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
+
+    private val path = Path()
+    private val detectedBoxes = mutableListOf<Pair<RectF, Int>>() // Список боксов и их классов
+
+    fun setBoxes(newBoxes: List<Pair<RectF, Int>>) {
+        detectedBoxes.clear()
+        detectedBoxes.addAll(newBoxes)
+        invalidate() // Перерисовать представление
+    }
+
+    @SuppressLint("DrawAllocation")
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
@@ -50,6 +73,22 @@ class OverlayView @JvmOverloads constructor(
         path.reset()
         path.addRect(left, top, right, bottom, Path.Direction.CW)
         canvas.drawPath(path, rectPaint)
+
+        // Рисуем боксы внутри прямоугольника
+        for ((box, classId) in detectedBoxes) {
+            val scaledBox = RectF(
+                left + box.left * (right - left),
+                top + box.top * (bottom - top),
+                left + box.right * (right - left),
+                top + box.bottom * (bottom - top)
+            )
+            // Рисуем рамку
+            canvas.drawRect(scaledBox, boxPaint)
+
+            // Добавляем текст класса над боксом
+            val label = "Class: $classId"
+            canvas.drawText(label, scaledBox.left, scaledBox.top - 10, textPaint)
+        }
 
         // Восстанавливаем слой
         canvas.restoreToCount(saveLayer)

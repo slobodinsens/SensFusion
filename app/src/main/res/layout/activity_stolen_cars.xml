@@ -10,11 +10,12 @@
         android:layout_height="match_parent"
         android:layout_gravity="center" />
 
-    <!-- Наложение с размытой областью -->
+    <!-- Наложение для отрисовки боксов -->
     <com.example.sensfusion.OverlayView
         android:id="@+id/overlayView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:layout_gravity="center" />
 
     <!-- Кнопка фиксации изображения -->
     <Button
@@ -24,4 +25,5 @@
         android:layout_gravity="center|bottom"
         android:layout_marginBottom="32dp"
         android:text="Capture" />
+
 </FrameLayout>
