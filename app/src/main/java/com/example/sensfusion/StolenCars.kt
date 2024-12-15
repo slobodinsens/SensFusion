@@ -13,6 +13,8 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import org.tensorflow.lite.Interpreter
 import java.io.ByteArrayOutputStream
+import java.io.File
+import java.io.FileOutputStream
 import java.io.FileInputStream
 import java.io.IOException
 import java.nio.MappedByteBuffer
@@ -33,18 +35,18 @@ class StolenCars : AppCompatActivity() {
         val previewView = findViewById<PreviewView>(R.id.previewView)
         overlayView = findViewById(R.id.overlayView)
 
-        // Загрузка модели
+        // Load the model
         try {
-            tflite = loadModelFile("dig_yolov8s_17_float32.tflite")
+            tflite = loadModelFile("yolo11m_car_plate_ocr_float32.tflite")
             Log.d("TFLite", "Model loaded successfully.")
         } catch (e: IOException) {
             Log.e("TFLite", "Error loading model: ${e.message}")
         }
 
-        // Настройка камеры
+        // Setup camera
         setupCamera(previewView)
 
-        // Инициализация рабочего потока
+        // Initialize the executor service
         cameraExecutor = Executors.newSingleThreadExecutor()
     }
 
@@ -60,12 +62,10 @@ class StolenCars : AppCompatActivity() {
                 val cameraProvider = cameraProviderFuture.get()
                 val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
-                // Настройка предварительного просмотра
                 val preview = Preview.Builder().build().also {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
 
-                // Настройка анализа изображения
                 val imageAnalyzer = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build().also {
@@ -87,19 +87,20 @@ class StolenCars : AppCompatActivity() {
 
     private fun processImage(imageProxy: ImageProxy) {
         val bitmap = imageProxy.toBitmap()
-        if (bitmap != null) {
-            Log.d("ProcessImage", "Image converted to Bitmap. Width: ${bitmap.width}, Height: ${bitmap.height}")
-            runInference(bitmap)
-        } else {
+        bitmap?.let {
+            Log.d("ProcessImage", "Image converted to Bitmap. Width: ${it.width}, Height: ${it.height}")
+            saveBitmap(it, "input_image.jpg")
+            runInference(it)
+        } ?: run {
             Log.e("CameraX", "Failed to convert ImageProxy to Bitmap.")
         }
         imageProxy.close()
     }
 
     private fun ImageProxy.toBitmap(): Bitmap? {
-        val yBuffer = planes[0].buffer // Y
-        val uBuffer = planes[1].buffer // U
-        val vBuffer = planes[2].buffer // V
+        val yBuffer = planes[0].buffer
+        val uBuffer = planes[1].buffer
+        val vBuffer = planes[2].buffer
 
         val ySize = yBuffer.remaining()
         val uSize = uBuffer.remaining()
@@ -118,28 +119,39 @@ class StolenCars : AppCompatActivity() {
         return BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
     }
 
+    private fun saveBitmap(bitmap: Bitmap, fileName: String) {
+        try {
+            val file = File(getExternalFilesDir(null), fileName)
+            val outStream = FileOutputStream(file)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outStream)
+            outStream.flush()
+            outStream.close()
+            Log.d("SaveBitmap", "Bitmap saved to ${file.absolutePath}")
+        } catch (e: Exception) {
+            Log.e("SaveBitmap", "Error saving Bitmap: ${e.message}")
+        }
+    }
+
     private fun loadModelFile(modelPath: String): Interpreter {
         val fileDescriptor: AssetFileDescriptor = assets.openFd(modelPath)
         val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
         val fileChannel: FileChannel = inputStream.channel
         val startOffset = fileDescriptor.startOffset
         val declaredLength = fileDescriptor.declaredLength
-        val model: MappedByteBuffer =
-            fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
-        return Interpreter(model)
+        return Interpreter(fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength))
     }
 
     private fun preprocessBitmap(bitmap: Bitmap): Array<Array<Array<FloatArray>>> {
-        val inputSize = 640 // Размер входа модели (640x640)
+        val inputSize = 640
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
         val input = Array(1) { Array(inputSize) { Array(inputSize) { FloatArray(3) } } }
 
         for (y in 0 until inputSize) {
             for (x in 0 until inputSize) {
                 val pixel = scaledBitmap.getPixel(x, y)
-                input[0][y][x][0] = (pixel shr 16 and 0xFF) / 255.0f // Красный канал
-                input[0][y][x][1] = (pixel shr 8 and 0xFF) / 255.0f  // Зелёный канал
-                input[0][y][x][2] = (pixel and 0xFF) / 255.0f        // Синий канал
+                input[0][y][x][0] = (pixel shr 16 and 0xFF) / 255.0f
+                input[0][y][x][1] = (pixel shr 8 and 0xFF) / 255.0f
+                input[0][y][x][2] = (pixel and 0xFF) / 255.0f
             }
         }
 
@@ -149,17 +161,19 @@ class StolenCars : AppCompatActivity() {
 
     private fun runInference(bitmap: Bitmap) {
         val input = preprocessBitmap(bitmap)
-        val output = Array(1) { Array(16) { FloatArray(8400) } } // Адаптировано под вывод модели YOLOv8
+        val output = Array(1) { Array(42) { FloatArray(8400) } }
 
         tflite.run(input, output)
 
-        Log.d("Inference", "Raw output: ${output.contentDeepToString()}")
+        Log.d("Inference", "Raw output shape: [${output.size}, ${output[0].size}, ${output[0][0].size}]")
 
-        // Обработка результата
         val detectedBoxes = parseOutput(output, bitmap.width, bitmap.height)
 
-        // Логирование количества распознанных объектов
-        Log.d("Inference", "Detected objects: ${detectedBoxes.size}")
+        if (detectedBoxes.isEmpty()) {
+            Log.d("Inference", "No objects detected.")
+        } else {
+            Log.d("Inference", "Detected objects: ${detectedBoxes.size}")
+        }
 
         runOnUiThread {
             overlayView.setBoxes(detectedBoxes)
@@ -169,14 +183,14 @@ class StolenCars : AppCompatActivity() {
     private fun parseOutput(output: Array<Array<FloatArray>>, imageWidth: Int, imageHeight: Int): List<Pair<RectF, Int>> {
         val boxesWithClasses = mutableListOf<Pair<RectF, Int>>()
 
-        for (i in output[0][0].indices) { // Для каждого предсказания
+        for (i in output[0][0].indices) {
             val xCenter = output[0][0][i]
             val yCenter = output[0][1][i]
             val width = output[0][2][i]
             val height = output[0][3][i]
             val confidence = output[0][4][i]
 
-            val classProbabilities = output[0].sliceArray(5..14).map { it[i] }
+            val classProbabilities = output[0].sliceArray(5 until output[0].size).map { it[i] }
             val maxProbability = classProbabilities.maxOrNull() ?: 0f
             val classId = classProbabilities.indexOf(maxProbability)
 
@@ -189,8 +203,8 @@ class StolenCars : AppCompatActivity() {
             }
         }
 
-        for ((box, classId) in boxesWithClasses) {
-            Log.d("Detection", "Box: $box, Class: $classId")
+        boxesWithClasses.forEach { (box, classId) ->
+            Log.d("Detection", "Box: $box, Class ID: $classId")
         }
 
         return boxesWithClasses
