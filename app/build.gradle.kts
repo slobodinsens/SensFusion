@@ -17,6 +17,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+
     }
 
     buildTypes {
@@ -26,6 +28,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
         }
     }
 
@@ -62,6 +65,11 @@ dependencies {
     // Firebase Authentication (если Email и пароль планируете использовать с Firebase)
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.messaging.ktx)
+    implementation(libs.androidx.core)
+    implementation(libs.androidx.core)
+    implementation(libs.litert.metadata)
+    //implementation(libs.litert.support.api)
+    //implementation(libs.litert.api)
 
     // Jetpack Compose
     val composeBom = platform("androidx.compose:compose-bom:2024.10.00")
@@ -88,6 +96,8 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.google.firebase:firebase-bom:33.7.0")
     implementation (libs.firebase.messaging)
-    implementation ("org.tensorflow:tensorflow-lite:2.12.0")
-    implementation ("org.tensorflow:tensorflow-lite-support:0.4.3")
+
+    implementation(libs.tensorflow.lite.support)
+
+
 }
