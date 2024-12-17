@@ -51,6 +51,13 @@ class OverlayView @JvmOverloads constructor(
         Color.CYAN, Color.MAGENTA, Color.LTGRAY, Color.WHITE
     )
 
+    // Имена классов
+    private val plateClassNames = listOf(
+        "dot", "eight", "five", "four", "il",
+        "nine", "one", "seven", "six", "three",
+        "two", "zero"
+    )
+
     private val boxShrinkFactor = 0.9f // Коэффициент уменьшения боксов
 
     /**
@@ -103,9 +110,12 @@ class OverlayView @JvmOverloads constructor(
             boxPaint.color = color
             textPaint.color = color
 
+            // Получаем имя класса
+            val className = plateClassNames.getOrNull(classId) ?: "Unknown"
+
             // Рисуем бокс и текст
             canvas.drawRect(constrainedBox, boxPaint)
-            canvas.drawText("Class: $classId", constrainedBox.left, constrainedBox.top - 10, textPaint)
+            canvas.drawText("Class: $className", constrainedBox.left, constrainedBox.top - 10, textPaint)
         }
     }
 
