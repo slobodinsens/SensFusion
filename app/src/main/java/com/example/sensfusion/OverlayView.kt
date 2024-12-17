@@ -75,29 +75,28 @@ class OverlayView @JvmOverloads constructor(
         // Отступы 5% от ширины экрана
         val horizontalMargin = width * 0.05f
 
-        // Создание горизонтального прямоугольника
-        val rectHeight = height * 0.2f // Высота прямоугольника (20% от высоты экрана)
-        val top = (height - rectHeight) / 2
-        val bottom = top + rectHeight
-        val clearRect = RectF(
+        // Горизонтальная безопасная зона (30% от высоты экрана)
+        val safeZoneHeight = height * 0.2f
+        val top = (height - safeZoneHeight) / 2
+        val bottom = top + safeZoneHeight
+        val safeZone = RectF(
             horizontalMargin, // Отступ слева
             top,              // Верхняя граница
             width - horizontalMargin, // Отступ справа
             bottom            // Нижняя граница
         )
 
-        // Создание темного слоя
+        // Создание тёмного слоя
         val saveLayer = canvas.saveLayer(0f, 0f, width, height, null)
         canvas.drawRect(0f, 0f, width, height, blurPaint)
 
-        // Очистка прямоугольника
-        canvas.drawRect(clearRect, clearPaint)
+        // Очистка безопасной зоны
+        canvas.drawRect(safeZone, clearPaint)
         canvas.restoreToCount(saveLayer)
 
         // Отрисовка боксов
         for ((box, classId) in detectedBoxes) {
-            val scaledBox = scaleBoxToRect(box, clearRect)
-            val shrunkBox = shrinkBox(scaledBox, boxShrinkFactor)
+            val constrainedBox = constrainBoxToSafeZone(box, safeZone)
 
             // Подбираем цвет для класса
             val color = classColors[classId % classColors.size]
@@ -105,40 +104,30 @@ class OverlayView @JvmOverloads constructor(
             textPaint.color = color
 
             // Рисуем бокс и текст
-            canvas.drawRect(shrunkBox, boxPaint)
-            canvas.drawText("Class: $classId", shrunkBox.left, shrunkBox.top - 10, textPaint)
+            canvas.drawRect(constrainedBox, boxPaint)
+            canvas.drawText("Class: $classId", constrainedBox.left, constrainedBox.top - 10, textPaint)
         }
     }
 
     /**
-     * Масштабирует распознанный бокс в пределах чистого прямоугольника
+     * Масштабирует и ограничивает бокс в пределах безопасной зоны
      */
-    private fun scaleBoxToRect(box: RectF, clearRect: RectF): RectF {
-        val rectWidth = clearRect.width()
-        val rectHeight = clearRect.height()
+    private fun constrainBoxToSafeZone(box: RectF, safeZone: RectF): RectF {
+        val safeWidth = safeZone.width()
+        val safeHeight = safeZone.height()
 
+        // Масштабирование бокса в процентах от безопасной зоны
+        val left = safeZone.left + box.left * safeWidth
+        val top = safeZone.top + box.top * safeHeight
+        val right = safeZone.left + box.right * safeWidth
+        val bottom = safeZone.top + box.bottom * safeHeight
+
+        // Ограничение боксов в пределах безопасной зоны
         return RectF(
-            clearRect.left + box.left * rectWidth,
-            clearRect.top + box.top * rectHeight,
-            clearRect.left + box.right * rectWidth,
-            clearRect.top + box.bottom * rectHeight
-        )
-    }
-
-    /**
-     * Уменьшает размер бокса с учетом коэффициента
-     */
-    private fun shrinkBox(box: RectF, shrinkFactor: Float): RectF {
-        val width = box.width()
-        val height = box.height()
-        val deltaX = (width * (1 - shrinkFactor)) / 2
-        val deltaY = (height * (1 - shrinkFactor)) / 2
-
-        return RectF(
-            box.left + deltaX,
-            box.top + deltaY,
-            box.right - deltaX,
-            box.bottom - deltaY
+            left.coerceIn(safeZone.left, safeZone.right),
+            top.coerceIn(safeZone.top, safeZone.bottom),
+            right.coerceIn(safeZone.left, safeZone.right),
+            bottom.coerceIn(safeZone.top, safeZone.bottom)
         )
     }
 }
