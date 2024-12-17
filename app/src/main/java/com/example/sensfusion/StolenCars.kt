@@ -29,6 +29,8 @@ import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.math.max
+import kotlin.math.min
 
 class StolenCars : AppCompatActivity() {
 
@@ -38,6 +40,7 @@ class StolenCars : AppCompatActivity() {
     private lateinit var inputImageBuffer: TensorImage
     private lateinit var outputBuffer: TensorBuffer
     private lateinit var modelFile: MappedByteBuffer
+    private var isProcessingFrame = false // Для предотвращения обработки нескольких кадров одновременно
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,7 +50,7 @@ class StolenCars : AppCompatActivity() {
         overlayView = findViewById(R.id.overlayView)
 
         try {
-            modelFile = loadModelFile("dig_yolov8s_17_float16.tflite")
+            modelFile = loadModelFile("dig_yolov8s_17_float32.tflite")
             tflite = Interpreter(modelFile)
             initBuffers()
             Log.d("TFLite", "Model and buffers initialized successfully.")
@@ -94,6 +97,12 @@ class StolenCars : AppCompatActivity() {
     }
 
     private fun processImage(imageProxy: ImageProxy) {
+        if (isProcessingFrame) {
+            imageProxy.close()
+            return
+        }
+        isProcessingFrame = true
+
         val bitmap = imageProxy.toBitmap()
         bitmap?.let {
             val tensorImage = TensorImage(DataType.FLOAT32)
@@ -101,7 +110,7 @@ class StolenCars : AppCompatActivity() {
 
             val imageProcessor = ImageProcessor.Builder()
                 .add(ResizeOp(640, 640, ResizeOp.ResizeMethod.BILINEAR))
-                .add(NormalizeOp(0.0f, 255.0f)) // Normalize pixel values to [0, 1]
+                .add(NormalizeOp(0.0f, 255.0f)) // Нормализация пикселей в диапазон [0, 1]
                 .build()
 
             inputImageBuffer = imageProcessor.process(tensorImage)
@@ -110,11 +119,12 @@ class StolenCars : AppCompatActivity() {
             Log.e("CameraX", "Failed to convert ImageProxy to Bitmap.")
         }
         imageProxy.close()
+        isProcessingFrame = false
     }
 
     private fun initBuffers() {
-        val inputShape = tflite.getInputTensor(0).shape() // Assuming single input
-        val outputShape = tflite.getOutputTensor(0).shape() // Assuming single output
+        val inputShape = tflite.getInputTensor(0).shape()
+        val outputShape = tflite.getOutputTensor(0).shape()
         inputImageBuffer = TensorImage(DataType.FLOAT32)
         outputBuffer = TensorBuffer.createFixedSize(outputShape, DataType.FLOAT32)
     }
@@ -138,18 +148,23 @@ class StolenCars : AppCompatActivity() {
         val numDetections = 8400
         val numAttributes = 16
 
+        val imageWidth = 640f
+        val imageHeight = 640f
+
         for (i in 0 until numDetections) {
             val offset = i * numAttributes
-            val xCenter = outputArray[offset]
-            val yCenter = outputArray[offset + 1]
-            val width = outputArray[offset + 2]
-            val height = outputArray[offset + 3]
+            val xCenter = outputArray[offset] * imageWidth
+            val yCenter = outputArray[offset + 1] * imageHeight
+            val width = outputArray[offset + 2] * imageWidth
+            val height = outputArray[offset + 3] * imageHeight
             val confidence = outputArray[offset + 4]
+
             val classProbabilities = outputArray.sliceArray(offset + 5 until offset + numAttributes)
             val maxProbability = classProbabilities.maxOrNull() ?: 0f
             val classId = classProbabilities.toList().indexOf(maxProbability)
 
-            if (confidence > 0.2 && maxProbability > 0.2) {
+
+            if (confidence > 0.5 && maxProbability > 0.5) { // Фильтрация по уверенности
                 val x1 = xCenter - width / 2
                 val y1 = yCenter - height / 2
                 val x2 = xCenter + width / 2
@@ -157,7 +172,51 @@ class StolenCars : AppCompatActivity() {
                 detections.add(RectF(x1, y1, x2, y2) to classId)
             }
         }
-        return detections
+
+        val filteredDetections = applyNMS(detections, iouThreshold = 0.4f)
+
+        // Проверка количества распознанных объектов
+        Log.d("Detection", "Total detections after NMS: ${filteredDetections.size}")
+        if (filteredDetections.size > 50) {
+            Log.w("Detection", "Warning: Too many detections (${filteredDetections.size}). Review model thresholds or parameters.")
+        }
+
+        return filteredDetections
+    }
+
+
+    private fun applyNMS(detections: List<Pair<RectF, Int>>, iouThreshold: Float): List<Pair<RectF, Int>> {
+        val sortedDetections = detections.sortedByDescending { it.first.width() * it.first.height() }
+        val results = mutableListOf<Pair<RectF, Int>>()
+
+        for (current in sortedDetections) {
+            var keep = true
+            for (existing in results) {
+                val iou = calculateIoU(current.first, existing.first)
+                if (iou > iouThreshold) {
+                    keep = false
+                    break
+                }
+            }
+            if (keep) {
+                results.add(current)
+            }
+        }
+        return results
+    }
+
+    private fun calculateIoU(boxA: RectF, boxB: RectF): Float {
+        val intersectLeft = max(boxA.left, boxB.left)
+        val intersectTop = max(boxA.top, boxB.top)
+        val intersectRight = min(boxA.right, boxB.right)
+        val intersectBottom = min(boxA.bottom, boxB.bottom)
+
+        val intersectArea = max(0f, intersectRight - intersectLeft) * max(0f, intersectBottom - intersectTop)
+        val boxAArea = (boxA.right - boxA.left) * (boxA.bottom - boxA.top)
+        val boxBArea = (boxB.right - boxB.left) * (boxB.bottom - boxB.top)
+        val unionArea = boxAArea + boxBArea - intersectArea
+
+        return if (unionArea == 0f) 0f else intersectArea / unionArea
     }
 
     private fun loadModelFile(modelPath: String): MappedByteBuffer {
