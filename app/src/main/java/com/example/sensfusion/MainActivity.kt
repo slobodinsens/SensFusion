@@ -1,15 +1,15 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.sensfusion
 
-import android.Manifest
+import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.animation.AnimationUtils
-import android.widget.Button
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
+import androidx.cardview.widget.CardView
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,64 +17,43 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Проверка разрешения для уведомлений (Android 13+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                    101
-                )
+        // Инициализация виджетов
+        val settingsWidget: CardView = findViewById(R.id.settingsWidget)
+        val stolenCarWidget: CardView = findViewById(R.id.stolenCarWidget)
+        val carNumberWidget: CardView = findViewById(R.id.carNumberWidget)
+
+        // Загрузка анимации
+        val widgetClickAnimation = AnimationUtils.loadAnimation(this, R.anim.widget_click_animation)
+
+        // Метод для вибрации
+        fun vibrate() {
+            val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            if (vibrator.hasVibrator()) {
+                // Вибрация длительностью 50 мс
+                vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
             }
         }
 
-        // Инициализация кнопок
-        val settingsButton: Button = findViewById(R.id.settingsButton)
-        val stolenCarButton: Button = findViewById(R.id.stolenCarButton)
-        val carNumberButton: Button = findViewById(R.id.carNumberButton)
-
-        // Загрузка анимации
-        val buttonClickAnimation = AnimationUtils.loadAnimation(this, R.anim.button_click_animation)
-
-        // Обработчик нажатия на кнопку Settings
-        settingsButton.setOnClickListener {
-            it.startAnimation(buttonClickAnimation)
-            // Переход в EmailPassword Activity
+        // Обработчики нажатий
+        settingsWidget.setOnClickListener {
+            it.startAnimation(widgetClickAnimation) // Анимация кнопки
+            vibrate() // Вибрация
             val intent = Intent(this, EmailPassword::class.java)
             startActivity(intent)
         }
 
-        // Обработчик нажатия на кнопку Stolen Car
-        stolenCarButton.setOnClickListener {
-            it.startAnimation(buttonClickAnimation)
+        stolenCarWidget.setOnClickListener {
+            it.startAnimation(widgetClickAnimation) // Анимация кнопки
+            vibrate() // Вибрация
             val intent = Intent(this, StolenCars::class.java)
             startActivity(intent)
         }
 
-        // Обработчик нажатия на кнопку Car Number
-        carNumberButton.setOnClickListener {
-            it.startAnimation(buttonClickAnimation) // Анимация кнопки
-
-            // Переход на другую активность (CarNumberActivity)
+        carNumberWidget.setOnClickListener {
+            it.startAnimation(widgetClickAnimation) // Анимация кнопки
+            vibrate() // Вибрация
             val intent = Intent(this, PhotoNumber::class.java)
             startActivity(intent)
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 101) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Notifications permission granted", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "Notifications permission denied", Toast.LENGTH_SHORT).show()
-            }
         }
     }
 }

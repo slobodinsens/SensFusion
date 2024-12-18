@@ -107,6 +107,7 @@ dependencies {
     implementation (libs.firebase.messaging)
 
     implementation(libs.tensorflow.lite.support)
+    implementation ("androidx.cardview:cardview:1.0.0")
 
 
 }
