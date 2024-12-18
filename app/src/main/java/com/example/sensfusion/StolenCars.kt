@@ -47,6 +47,9 @@ class StolenCars : AppCompatActivity() {
         "two" to "2", "zero" to "0"
     )
 
+    // Хранение лучших распознанных номеров с их вероятностью
+    private val detectedNumbers = mutableMapOf<String, Float>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_stolen_cars)
@@ -173,6 +176,17 @@ class StolenCars : AppCompatActivity() {
                 val y1 = yCenter - height / 2
                 val x2 = xCenter + width / 2
                 val y2 = yCenter + height / 2
+
+                // Сохранение или обновление лучшей вероятности для каждого символа
+                val className = plateClassNames.keys.elementAtOrNull(classId) ?: ""
+                val detectedChar = plateClassNames[className] ?: ""
+                if (detectedChar.isNotEmpty()) {
+                    val currentConfidence = detectedNumbers[detectedChar] ?: 0f
+                    if (confidence > currentConfidence) {
+                        detectedNumbers[detectedChar] = confidence
+                    }
+                }
+
                 detections.add(RectF(x1, y1, x2, y2) to classId)
             }
         }

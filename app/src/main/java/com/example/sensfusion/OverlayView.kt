@@ -100,4 +100,8 @@ class OverlayView @JvmOverloads constructor(
             textX += 50 // Сдвиг текста вправо
         }
     }
+
+    fun setNumbers(detections: Map<String, Float>) {
+
+    }
 }
