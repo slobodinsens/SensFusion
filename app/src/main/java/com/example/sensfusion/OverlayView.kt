@@ -26,15 +26,10 @@ class OverlayView @JvmOverloads constructor(
         isAntiAlias = true
     }
 
-    private val boxPaint = Paint().apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 4f
-        isAntiAlias = true
-    }
-
     private val textPaint = Paint().apply {
-        textSize = 35f
+        textSize = 50f
         style = Paint.Style.FILL
+        color = Color.WHITE
         isAntiAlias = true
     }
 
@@ -42,32 +37,31 @@ class OverlayView @JvmOverloads constructor(
         xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
     }
 
-    private var detectedBoxes = listOf<Pair<RectF, Int>>()
+    private var detectedDigits = mutableListOf<String>() // Список фиксированных распознанных символов
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 
-    // Список цветов для классов
-    private val classColors = listOf(
-        Color.RED, Color.BLUE, Color.GREEN, Color.YELLOW,
-        Color.CYAN, Color.MAGENTA, Color.LTGRAY, Color.WHITE
+    // Словарь для соответствия классов и символов
+    private val plateClassNames = mapOf(
+        "dot" to ".", "eight" to "8", "five" to "5", "four" to "4", "il" to "il",
+        "nine" to "9", "one" to "1", "seven" to "7", "six" to "6", "three" to "3",
+        "two" to "2", "zero" to "0"
     )
-
-    // Имена классов
-    private val plateClassNames = listOf(
-        "dot", "eight", "five", "four", "il",
-        "nine", "one", "seven", "six", "three",
-        "two", "zero"
-    )
-
-    private val boxShrinkFactor = 0.9f // Коэффициент уменьшения боксов
 
     /**
-     * Обновляет список распознанных боксов и перерисовывает
+     * Обновляет список распознанных символов и фиксирует их, если они ещё не добавлены
      */
     fun setBoxes(newBoxes: List<Pair<RectF, Int>>) {
         executor.submit {
             post {
-                detectedBoxes = newBoxes
-                invalidate()
+                for ((_, classId) in newBoxes) {
+                    // Преобразование classId в строку
+                    val className = plateClassNames.keys.elementAtOrNull(classId)
+                    val digit = plateClassNames[className]
+                    if (digit != null && !detectedDigits.contains(digit)) {
+                        detectedDigits.add(digit)
+                    }
+                }
+                invalidate() // Перерисовка экрана
             }
         }
     }
@@ -79,10 +73,8 @@ class OverlayView @JvmOverloads constructor(
         val width = width.toFloat()
         val height = height.toFloat()
 
-        // Отступы 5% от ширины экрана
+        // Определяем безопасную зону
         val horizontalMargin = width * 0.05f
-
-        // Горизонтальная безопасная зона (30% от высоты экрана)
         val safeZoneHeight = height * 0.2f
         val top = (height - safeZoneHeight) / 2
         val bottom = top + safeZoneHeight
@@ -93,51 +85,19 @@ class OverlayView @JvmOverloads constructor(
             bottom            // Нижняя граница
         )
 
-        // Создание тёмного слоя
+        // Затемнение экрана за исключением безопасной зоны
         val saveLayer = canvas.saveLayer(0f, 0f, width, height, null)
         canvas.drawRect(0f, 0f, width, height, blurPaint)
-
-        // Очистка безопасной зоны
         canvas.drawRect(safeZone, clearPaint)
         canvas.restoreToCount(saveLayer)
 
-        // Отрисовка боксов
-        for ((box, classId) in detectedBoxes) {
-            val constrainedBox = constrainBoxToSafeZone(box, safeZone)
+        // Отображение зафиксированных символов над безопасной зоной
+        var textX = horizontalMargin // Начальная позиция текста слева
+        val textY = top - 20 // Текст чуть выше безопасной зоны
 
-            // Подбираем цвет для класса
-            val color = classColors[classId % classColors.size]
-            boxPaint.color = color
-            textPaint.color = color
-
-            // Получаем имя класса
-            val className = plateClassNames.getOrNull(classId) ?: "Unknown"
-
-            // Рисуем бокс и текст
-            canvas.drawRect(constrainedBox, boxPaint)
-            canvas.drawText("Class: $className", constrainedBox.left, constrainedBox.top - 10, textPaint)
+        for (digit in detectedDigits) {
+            canvas.drawText(digit, textX, textY, textPaint)
+            textX += 50 // Сдвиг текста вправо
         }
-    }
-
-    /**
-     * Масштабирует и ограничивает бокс в пределах безопасной зоны
-     */
-    private fun constrainBoxToSafeZone(box: RectF, safeZone: RectF): RectF {
-        val safeWidth = safeZone.width()
-        val safeHeight = safeZone.height()
-
-        // Масштабирование бокса в процентах от безопасной зоны
-        val left = safeZone.left + box.left * safeWidth
-        val top = safeZone.top + box.top * safeHeight
-        val right = safeZone.left + box.right * safeWidth
-        val bottom = safeZone.top + box.bottom * safeHeight
-
-        // Ограничение боксов в пределах безопасной зоны
-        return RectF(
-            left.coerceIn(safeZone.left, safeZone.right),
-            top.coerceIn(safeZone.top, safeZone.bottom),
-            right.coerceIn(safeZone.left, safeZone.right),
-            bottom.coerceIn(safeZone.top, safeZone.bottom)
-        )
     }
 }

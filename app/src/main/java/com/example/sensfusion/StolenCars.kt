@@ -1,5 +1,3 @@
-@file:Suppress("EXTENSION_SHADOWED_BY_MEMBER")
-
 package com.example.sensfusion
 
 import android.content.res.AssetFileDescriptor
@@ -40,7 +38,14 @@ class StolenCars : AppCompatActivity() {
     private lateinit var inputImageBuffer: TensorImage
     private lateinit var outputBuffer: TensorBuffer
     private lateinit var modelFile: MappedByteBuffer
-    private var isProcessingFrame = false // Для предотвращения обработки нескольких кадров одновременно
+    private var isProcessingFrame = false
+
+    // Словарь классов для соответствия индексов символам
+    private val plateClassNames = mapOf(
+        "dot" to ".", "eight" to "8", "five" to "5", "four" to "4", "il" to "il",
+        "nine" to "9", "one" to "1", "seven" to "7", "six" to "6", "three" to "3",
+        "two" to "2", "zero" to "0"
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -134,7 +139,7 @@ class StolenCars : AppCompatActivity() {
             tflite.run(inputImageBuffer.buffer, outputBuffer.buffer.rewind())
             val detections = parseOutput(outputBuffer)
             runOnUiThread {
-                overlayView.setBoxes(detections)
+                overlayView.setBoxes(detections) // Передача боксов в OverlayView
             }
         } catch (e: Exception) {
             Log.e("Inference", "Error during inference: ${e.message}")
@@ -163,8 +168,7 @@ class StolenCars : AppCompatActivity() {
             val maxProbability = classProbabilities.maxOrNull() ?: 0f
             val classId = classProbabilities.toList().indexOf(maxProbability)
 
-
-            if (confidence > 0.5 && maxProbability > 0.5) { // Фильтрация по уверенности
+            if (confidence > 0.9 && maxProbability > 0.9) {
                 val x1 = xCenter - width / 2
                 val y1 = yCenter - height / 2
                 val x2 = xCenter + width / 2
@@ -173,17 +177,19 @@ class StolenCars : AppCompatActivity() {
             }
         }
 
-        val filteredDetections = applyNMS(detections, iouThreshold = 0.4f)
-
-        // Проверка количества распознанных объектов
-        Log.d("Detection", "Total detections after NMS: ${filteredDetections.size}")
-        if (filteredDetections.size > 50) {
-            Log.w("Detection", "Warning: Too many detections (${filteredDetections.size}). Review model thresholds or parameters.")
-        }
-
-        return filteredDetections
+        return filterInvalidResults(applyNMS(detections, iouThreshold = 0.4f))
     }
 
+    private fun filterInvalidResults(detections: List<Pair<RectF, Int>>): List<Pair<RectF, Int>> {
+        val validChars = "0123456789." // Допустимые символы
+
+        return detections.filter { (_, classId) ->
+            val className = plateClassNames.keys.elementAtOrNull(classId) ?: ""
+            val detectedChar = plateClassNames[className] ?: ""
+
+            detectedChar.all { char -> validChars.contains(char) }
+        }
+    }
 
     private fun applyNMS(detections: List<Pair<RectF, Int>>, iouThreshold: Float): List<Pair<RectF, Int>> {
         val sortedDetections = detections.sortedByDescending { it.first.width() * it.first.height() }
