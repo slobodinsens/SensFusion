@@ -4,6 +4,8 @@ import android.content.res.AssetFileDescriptor
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageFormat
+import android.graphics.Matrix
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.YuvImage
 import android.os.Bundle
@@ -16,10 +18,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.support.common.ops.NormalizeOp
-import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
-import org.tensorflow.lite.support.image.ops.ResizeOp
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 import java.io.ByteArrayOutputStream
 import java.io.FileInputStream
@@ -27,8 +26,6 @@ import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import kotlin.math.max
-import kotlin.math.min
 
 class StolenCars : AppCompatActivity() {
 
@@ -40,16 +37,6 @@ class StolenCars : AppCompatActivity() {
     private lateinit var modelFile: MappedByteBuffer
     private var isProcessingFrame = false
 
-    // Словарь классов для соответствия индексов символам
-    private val plateClassNames = mapOf(
-        "dot" to ".", "eight" to "8", "five" to "5", "four" to "4", "il" to "il",
-        "nine" to "9", "one" to "1", "seven" to "7", "six" to "6", "three" to "3",
-        "two" to "2", "zero" to "0"
-    )
-
-    // Хранение лучших распознанных номеров с их вероятностью
-    private val detectedNumbers = mutableMapOf<String, Float>()
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_stolen_cars)
@@ -58,8 +45,9 @@ class StolenCars : AppCompatActivity() {
         overlayView = findViewById(R.id.overlayView)
 
         try {
-            modelFile = loadModelFile("dig_yolov8s_17_float32.tflite")
-            tflite = Interpreter(modelFile)
+            modelFile = loadModelFile("yolov8n_float32.tflite")
+            val options = Interpreter.Options().apply { setUseXNNPACK(true) }
+            tflite = Interpreter(modelFile, options)
             initBuffers()
             Log.d("TFLite", "Model and buffers initialized successfully.")
         } catch (e: Exception) {
@@ -111,30 +99,25 @@ class StolenCars : AppCompatActivity() {
         }
         isProcessingFrame = true
 
-        val bitmap = imageProxy.toBitmap()
-        bitmap?.let {
-            val tensorImage = TensorImage(DataType.FLOAT32)
-            tensorImage.load(it)
-
-            val imageProcessor = ImageProcessor.Builder()
-                .add(ResizeOp(640, 640, ResizeOp.ResizeMethod.BILINEAR))
-                .add(NormalizeOp(0.0f, 255.0f)) // Нормализация пикселей в диапазон [0, 1]
-                .build()
-
-            inputImageBuffer = imageProcessor.process(tensorImage)
+        val bitmap = imageProxy.toBitmap()?.let { resizeToTargetSize(it, 640, 640) }?.let { rotateBitmap(it, 90) }
+        if (bitmap != null) {
+            inputImageBuffer = TensorImage(DataType.FLOAT32).apply { load(bitmap) }
             runInference()
-        } ?: run {
-            Log.e("CameraX", "Failed to convert ImageProxy to Bitmap.")
+        } else {
+            Log.e("CameraX", "Failed to convert imageProxy to Bitmap.")
         }
+
         imageProxy.close()
         isProcessingFrame = false
     }
 
     private fun initBuffers() {
         val inputShape = tflite.getInputTensor(0).shape()
-        val outputShape = tflite.getOutputTensor(0).shape()
         inputImageBuffer = TensorImage(DataType.FLOAT32)
-        outputBuffer = TensorBuffer.createFixedSize(outputShape, DataType.FLOAT32)
+        outputBuffer = TensorBuffer.createFixedSize(
+            tflite.getOutputTensor(0).shape(),
+            tflite.getOutputTensor(0).dataType()
+        )
     }
 
     private fun runInference() {
@@ -142,7 +125,7 @@ class StolenCars : AppCompatActivity() {
             tflite.run(inputImageBuffer.buffer, outputBuffer.buffer.rewind())
             val detections = parseOutput(outputBuffer)
             runOnUiThread {
-                overlayView.setBoxes(detections) // Передача боксов в OverlayView
+                overlayView.setBoxes(detections)
             }
         } catch (e: Exception) {
             Log.e("Inference", "Error during inference: ${e.message}")
@@ -154,7 +137,7 @@ class StolenCars : AppCompatActivity() {
         val outputArray = outputBuffer.floatArray
 
         val numDetections = 8400
-        val numAttributes = 16
+        val numAttributes = 84
 
         val imageWidth = 640f
         val imageHeight = 640f
@@ -176,67 +159,20 @@ class StolenCars : AppCompatActivity() {
                 val y1 = yCenter - height / 2
                 val x2 = xCenter + width / 2
                 val y2 = yCenter + height / 2
-
-                // Сохранение или обновление лучшей вероятности для каждого символа
-                val className = plateClassNames.keys.elementAtOrNull(classId) ?: ""
-                val detectedChar = plateClassNames[className] ?: ""
-                if (detectedChar.isNotEmpty()) {
-                    val currentConfidence = detectedNumbers[detectedChar] ?: 0f
-                    if (confidence > currentConfidence) {
-                        detectedNumbers[detectedChar] = confidence
-                    }
-                }
-
                 detections.add(RectF(x1, y1, x2, y2) to classId)
             }
         }
-
-        return filterInvalidResults(applyNMS(detections, iouThreshold = 0.4f))
+        return detections
     }
 
-    private fun filterInvalidResults(detections: List<Pair<RectF, Int>>): List<Pair<RectF, Int>> {
-        val validChars = "0123456789." // Допустимые символы
-
-        return detections.filter { (_, classId) ->
-            val className = plateClassNames.keys.elementAtOrNull(classId) ?: ""
-            val detectedChar = plateClassNames[className] ?: ""
-
-            detectedChar.all { char -> validChars.contains(char) }
-        }
+    private fun resizeToTargetSize(bitmap: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
+        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
     }
 
-    private fun applyNMS(detections: List<Pair<RectF, Int>>, iouThreshold: Float): List<Pair<RectF, Int>> {
-        val sortedDetections = detections.sortedByDescending { it.first.width() * it.first.height() }
-        val results = mutableListOf<Pair<RectF, Int>>()
-
-        for (current in sortedDetections) {
-            var keep = true
-            for (existing in results) {
-                val iou = calculateIoU(current.first, existing.first)
-                if (iou > iouThreshold) {
-                    keep = false
-                    break
-                }
-            }
-            if (keep) {
-                results.add(current)
-            }
-        }
-        return results
-    }
-
-    private fun calculateIoU(boxA: RectF, boxB: RectF): Float {
-        val intersectLeft = max(boxA.left, boxB.left)
-        val intersectTop = max(boxA.top, boxB.top)
-        val intersectRight = min(boxA.right, boxB.right)
-        val intersectBottom = min(boxA.bottom, boxB.bottom)
-
-        val intersectArea = max(0f, intersectRight - intersectLeft) * max(0f, intersectBottom - intersectTop)
-        val boxAArea = (boxA.right - boxA.left) * (boxA.bottom - boxA.top)
-        val boxBArea = (boxB.right - boxB.left) * (boxB.bottom - boxB.top)
-        val unionArea = boxAArea + boxBArea - intersectArea
-
-        return if (unionArea == 0f) 0f else intersectArea / unionArea
+    private fun rotateBitmap(bitmap: Bitmap, degrees: Int): Bitmap {
+        val matrix = Matrix()
+        matrix.postRotate(degrees.toFloat())
+        return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
     private fun loadModelFile(modelPath: String): MappedByteBuffer {
@@ -264,7 +200,7 @@ class StolenCars : AppCompatActivity() {
 
         val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
         val out = ByteArrayOutputStream()
-        yuvImage.compressToJpeg(android.graphics.Rect(0, 0, width, height), 90, out)
+        yuvImage.compressToJpeg(Rect(0, 0, width, height), 90, out)
         val byteArray = out.toByteArray()
         return BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
     }
