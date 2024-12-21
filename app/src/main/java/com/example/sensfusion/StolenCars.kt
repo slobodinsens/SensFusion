@@ -1,10 +1,15 @@
 package com.example.sensfusion
 
-import android.content.res.AssetFileDescriptor
+import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtSession
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.ImageFormat
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.YuvImage
@@ -16,25 +21,17 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
-import org.tensorflow.lite.DataType
-import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.support.image.TensorImage
-import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 import java.io.ByteArrayOutputStream
-import java.io.FileInputStream
-import java.nio.MappedByteBuffer
-import java.nio.channels.FileChannel
+import java.nio.FloatBuffer
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class StolenCars : AppCompatActivity() {
 
-    private lateinit var tflite: Interpreter
+    private lateinit var ortEnv: OrtEnvironment
+    private lateinit var ortSession: OrtSession
     private lateinit var overlayView: OverlayView
     private lateinit var cameraExecutor: ExecutorService
-    private lateinit var inputImageBuffer: TensorImage
-    private lateinit var outputBuffer: TensorBuffer
-    private lateinit var modelFile: MappedByteBuffer
     private var isProcessingFrame = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,13 +42,10 @@ class StolenCars : AppCompatActivity() {
         overlayView = findViewById(R.id.overlayView)
 
         try {
-            modelFile = loadModelFile("yolov8n_float32.tflite")
-            val options = Interpreter.Options().apply { setUseXNNPACK(true) }
-            tflite = Interpreter(modelFile, options)
-            initBuffers()
-            Log.d("TFLite", "Model and buffers initialized successfully.")
+            initOnnxRuntime()
+            Log.d("ONNX", "Model initialized successfully.")
         } catch (e: Exception) {
-            Log.e("TFLite", "Error loading model: ${e.message}")
+            Log.e("ONNX", "Error loading model: ${e.message}")
         }
 
         setupCamera(previewView)
@@ -61,6 +55,12 @@ class StolenCars : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         cameraExecutor.shutdown()
+    }
+
+    private fun initOnnxRuntime() {
+        ortEnv = OrtEnvironment.getEnvironment()
+        val modelData = assets.open("dig_yolov8s_17.onnx").use { it.readBytes() }
+        ortSession = ortEnv.createSession(modelData)
     }
 
     private fun setupCamera(previewView: PreviewView) {
@@ -99,62 +99,80 @@ class StolenCars : AppCompatActivity() {
         }
         isProcessingFrame = true
 
-        val bitmap = imageProxy.toBitmap()?.let { resizeToTargetSize(it, 640, 640) }?.let { rotateBitmap(it, 90) }
-        if (bitmap != null) {
-            inputImageBuffer = TensorImage(DataType.FLOAT32).apply { load(bitmap) }
-            runInference()
-        } else {
-            Log.e("CameraX", "Failed to convert imageProxy to Bitmap.")
-        }
-
-        imageProxy.close()
-        isProcessingFrame = false
-    }
-
-    private fun initBuffers() {
-        val inputShape = tflite.getInputTensor(0).shape()
-        inputImageBuffer = TensorImage(DataType.FLOAT32)
-        outputBuffer = TensorBuffer.createFixedSize(
-            tflite.getOutputTensor(0).shape(),
-            tflite.getOutputTensor(0).dataType()
-        )
-    }
-
-    private fun runInference() {
         try {
-            tflite.run(inputImageBuffer.buffer, outputBuffer.buffer.rewind())
-            val detections = parseOutput(outputBuffer)
-            runOnUiThread {
-                overlayView.setBoxes(detections)
+            val bitmap = imageProxy.toBitmap()
+            if (bitmap != null) {
+                Log.d("ProcessImage", "Original bitmap dimensions: ${bitmap.width}x${bitmap.height}")
+                val resizedBitmap = resizeAndPadToTarget(bitmap, 640, 640)
+                Log.d("ProcessImage", "Bitmap after resize dimensions: ${resizedBitmap.width}x${resizedBitmap.height}")
+                val rotatedBitmap = rotateBitmap(resizedBitmap, 90)
+                Log.d("ProcessImage", "Bitmap after rotate dimensions: ${rotatedBitmap.width}x${rotatedBitmap.height}")
+
+                val inputArray = preprocessImage(rotatedBitmap)
+                val detections = runInference(inputArray)
+                runOnUiThread {
+                    overlayView.setBoxes(detections)
+                }
+            } else {
+                Log.e("CameraX", "Failed to convert imageProxy to Bitmap.")
             }
         } catch (e: Exception) {
-            Log.e("Inference", "Error during inference: ${e.message}")
+            Log.e("Processing", "Error processing image: ${e.message}")
+        } finally {
+            imageProxy.close()
+            isProcessingFrame = false
         }
     }
 
-    private fun parseOutput(outputBuffer: TensorBuffer): List<Pair<RectF, Int>> {
+    private fun preprocessImage(bitmap: Bitmap): FloatArray {
+        val floatArray = FloatArray(3 * 640 * 640)
+        var index = 0
+        for (y in 0 until 640) {
+            for (x in 0 until 640) {
+                val pixel = bitmap.getPixel(x, y)
+                floatArray[index++] = (pixel shr 16 and 0xFF) / 255f // R
+                floatArray[index++] = (pixel shr 8 and 0xFF) / 255f  // G
+                floatArray[index++] = (pixel and 0xFF) / 255f        // B
+            }
+        }
+        return floatArray
+    }
+
+    private fun runInference(inputArray: FloatArray): List<Pair<RectF, Int>> {
+        return try {
+            val inputShape = longArrayOf(1, 3, 640, 640)
+            val inputName = ortSession.inputNames.iterator().next()
+
+            val inputTensor = OnnxTensor.createTensor(ortEnv, FloatBuffer.wrap(inputArray), inputShape)
+            val results = ortSession.run(mapOf(inputName to inputTensor))
+            val output = results[0].value as Array<FloatArray>
+            parseOutput(output)
+        } catch (e: Exception) {
+            Log.e("ONNX", "Error during inference: ${e.message}")
+            emptyList()
+        }
+    }
+
+    private fun parseOutput(outputArray: Array<FloatArray>): List<Pair<RectF, Int>> {
         val detections = mutableListOf<Pair<RectF, Int>>()
-        val outputArray = outputBuffer.floatArray
-
-        val numDetections = 8400
-        val numAttributes = 84
-
+        val numDetections = outputArray.size
+        val numAttributes = 85
         val imageWidth = 640f
         val imageHeight = 640f
 
         for (i in 0 until numDetections) {
-            val offset = i * numAttributes
-            val xCenter = outputArray[offset] * imageWidth
-            val yCenter = outputArray[offset + 1] * imageHeight
-            val width = outputArray[offset + 2] * imageWidth
-            val height = outputArray[offset + 3] * imageHeight
-            val confidence = outputArray[offset + 4]
+            val offset = outputArray[i]
+            val xCenter = offset[0] * imageWidth
+            val yCenter = offset[1] * imageHeight
+            val width = offset[2] * imageWidth
+            val height = offset[3] * imageHeight
+            val confidence = offset[4]
 
-            val classProbabilities = outputArray.sliceArray(offset + 5 until offset + numAttributes)
+            val classProbabilities = offset.sliceArray(5 until numAttributes)
             val maxProbability = classProbabilities.maxOrNull() ?: 0f
             val classId = classProbabilities.toList().indexOf(maxProbability)
 
-            if (confidence > 0.9 && maxProbability > 0.9) {
+            if (confidence > 0.3 && maxProbability > 0.3) {
                 val x1 = xCenter - width / 2
                 val y1 = yCenter - height / 2
                 val x2 = xCenter + width / 2
@@ -165,23 +183,35 @@ class StolenCars : AppCompatActivity() {
         return detections
     }
 
-    private fun resizeToTargetSize(bitmap: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
-        return Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+    private fun resizeAndPadToTarget(bitmap: Bitmap, targetWidth: Int, targetHeight: Int): Bitmap {
+        val aspectRatio = bitmap.width.toFloat() / bitmap.height
+        val scaledWidth: Int
+        val scaledHeight: Int
+
+        if (aspectRatio > 1) {
+            scaledWidth = targetWidth
+            scaledHeight = (targetWidth / aspectRatio).toInt()
+        } else {
+            scaledHeight = targetHeight
+            scaledWidth = (targetHeight * aspectRatio).toInt()
+        }
+
+        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, scaledWidth, scaledHeight, true)
+        val paddedBitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(paddedBitmap)
+        val grayPaint = Paint().apply { color = Color.GRAY }
+        canvas.drawRect(0f, 0f, targetWidth.toFloat(), targetHeight.toFloat(), grayPaint)
+        val left = (targetWidth - scaledWidth) / 2f
+        val top = (targetHeight - scaledHeight) / 2f
+        canvas.drawBitmap(scaledBitmap, left, top, null)
+
+        return paddedBitmap
     }
 
     private fun rotateBitmap(bitmap: Bitmap, degrees: Int): Bitmap {
         val matrix = Matrix()
-        matrix.postRotate(degrees.toFloat())
+        matrix.postRotate(degrees.toFloat()) // Положительное значение degrees — поворот по часовой стрелке
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-    }
-
-    private fun loadModelFile(modelPath: String): MappedByteBuffer {
-        val assetFileDescriptor: AssetFileDescriptor = assets.openFd(modelPath)
-        val fileInputStream = FileInputStream(assetFileDescriptor.fileDescriptor)
-        val fileChannel = fileInputStream.channel
-        val startOffset = assetFileDescriptor.startOffset
-        val declaredLength = assetFileDescriptor.declaredLength
-        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
     }
 
     private fun ImageProxy.toBitmap(): Bitmap? {

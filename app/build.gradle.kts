@@ -17,8 +17,6 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-
     }
 
     buildTypes {
@@ -28,10 +26,8 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-
         }
     }
-
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -40,6 +36,12 @@ android {
 
     kotlinOptions {
         jvmTarget = "11"
+    }
+
+    sourceSets {
+        getByName("main") {
+            assets.srcDirs("src/main/assets") // Правильная настройка assets
+        }
     }
 }
 
@@ -71,15 +73,6 @@ dependencies {
     implementation(libs.androidx.monitor)
     implementation(libs.androidx.junit.ktx)
     implementation(libs.androidx.core)
-    //implementation(libs.litert.support.api)
-    implementation(libs.androidx.core)
-    implementation(libs.androidx.core)
-    implementation(libs.androidx.core)
-    implementation(libs.androidx.core)
-    implementation(libs.androidx.activity)
-    //implementation(libs.litert.support.api)
-    //implementation(libs.litert.api)
-
     // Jetpack Compose
     val composeBom = platform("androidx.compose:compose-bom:2024.10.00")
     implementation(composeBom)
@@ -98,16 +91,16 @@ dependencies {
 
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.constraintlayout.v214)
-    implementation ("androidx.camera:camera-core:1.3.0")
-    implementation ("androidx.camera:camera-camera2:1.4.0")
-    implementation ("androidx.camera:camera-lifecycle:1.3.0")
-    implementation ("androidx.camera:camera-view:1.3.0")
+    implementation("androidx.camera:camera-core:1.3.0")
+    implementation("androidx.camera:camera-camera2:1.4.0")
+    implementation("androidx.camera:camera-lifecycle:1.3.0")
+    implementation("androidx.camera:camera-view:1.3.0")
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.google.firebase:firebase-bom:33.7.0")
-    implementation (libs.firebase.messaging)
+    implementation(libs.firebase.messaging)
 
+    // TensorFlow Lite and ONNX Runtime
     implementation(libs.tensorflow.lite.support)
-    implementation ("androidx.cardview:cardview:1.0.0")
-
-
+    implementation("androidx.cardview:cardview:1.0.0")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.15.1")
 }
