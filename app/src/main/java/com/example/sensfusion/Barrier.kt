@@ -1,6 +1,9 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.sensfusion
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
@@ -98,6 +101,7 @@ class BarrierActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun getPairedDeviceByName(deviceName: String): String? {
         val pairedDevices: Set<BluetoothDevice>? = bluetoothAdapter.bondedDevices
         for (device in pairedDevices.orEmpty()) {
@@ -109,6 +113,7 @@ class BarrierActivity : AppCompatActivity() {
         return null
     }
 
+    @SuppressLint("MissingPermission")
     private fun connectToBarrier(): Boolean {
         if (deviceAddress == null) {
             Log.e("BarrierActivity", "Device address is null. Make sure to select a device first.")
