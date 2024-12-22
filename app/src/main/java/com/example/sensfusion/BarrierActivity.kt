@@ -27,18 +27,19 @@ class BarrierActivity : AppCompatActivity() {
     private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
     private var deviceAddress: String? = null
     private val requestCodePermissions = 1
-    private val discoveredDevices = mutableListOf<BluetoothDevice>()
+    private val discoveredDevices: MutableList<BluetoothDevice> = mutableListOf<BluetoothDevice>()
+
+    private lateinit var radarView: RadarView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.barrier)
 
-        // Инициализация кнопок
         val openBarrierButton: CardView = findViewById(R.id.openBarrierButton)
         val closeBarrierButton: CardView = findViewById(R.id.closeBarrierButton)
         val bluetoothSettingsButton: CardView = findViewById(R.id.bluetoothSettingsButton)
+        radarView = findViewById(R.id.radarView)
 
-        // Вибрация
         val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
 
         fun vibrate() {
@@ -47,13 +48,12 @@ class BarrierActivity : AppCompatActivity() {
             }
         }
 
-        // Настройки Bluetooth
         bluetoothSettingsButton.setOnClickListener {
             vibrate()
+            radarView.startSweepAnimation()
             startDeviceDiscovery()
         }
 
-        // Открытие шлагбаума
 //        openBarrierButton.setOnClickListener {
 //            vibrate()
 //            deviceAddress?.let {
@@ -67,7 +67,6 @@ class BarrierActivity : AppCompatActivity() {
 //            } ?: Log.e("BarrierActivity", "No device selected.")
 //        }
 
-        // Закрытие шлагбаума
 //        closeBarrierButton.setOnClickListener {
 //            vibrate()
 //            deviceAddress?.let {
@@ -81,7 +80,6 @@ class BarrierActivity : AppCompatActivity() {
 //            } ?: Log.e("BarrierActivity", "No device selected.")
 //        }
 
-        // Проверка разрешений
         checkAndRequestPermissions()
     }
 
@@ -120,21 +118,16 @@ class BarrierActivity : AppCompatActivity() {
         discoveredDevices.clear()
         bluetoothAdapter.startDiscovery()
 
-        // Регистрируем ресивер для обнаружения устройств
         val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
         registerReceiver(deviceDiscoveryReceiver, filter)
 
-        // Показываем список устройств после завершения сканирования
         AlertDialog.Builder(this)
-            .setTitle("Searching for devices...")
-            .setMessage("Scanning nearby devices. Please wait.")
-            .setNegativeButton("Cancel") { dialog, _ ->
+            .setTitle("Scanning for devices...")
+            .setNegativeButton("Stop") { dialog, _ ->
                 bluetoothAdapter.cancelDiscovery()
                 unregisterReceiver(deviceDiscoveryReceiver)
+                radarView.stopSweepAnimation()
                 dialog.dismiss()
-            }
-            .setOnDismissListener {
-                showDiscoveredDevicesDialog()
             }
             .show()
     }
@@ -144,51 +137,21 @@ class BarrierActivity : AppCompatActivity() {
         override fun onReceive(context: Context, intent: Intent) {
             if (BluetoothDevice.ACTION_FOUND == intent.action) {
                 val device: BluetoothDevice? = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
+                val rssi: Int = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE).toInt()
                 if (device != null && !discoveredDevices.contains(device)) {
                     discoveredDevices.add(device)
-                    Log.i("BarrierActivity", "Discovered device: ${device.name} (${device.address})")
+                    radarView.updateDevices(
+                        discoveredDevices.map { it.name ?: "Unknown" to rssi }
+                    )
                 }
             }
         }
     }
 
-    private fun showDiscoveredDevicesDialog() {
-        if (discoveredDevices.isEmpty()) {
-            Toast.makeText(this, "No devices found", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val deviceNames = discoveredDevices.map { "${it.name ?: "Unknown"} (${it.address})" }.toTypedArray()
-        val deviceMap = discoveredDevices.associateBy { if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.BLUETOOTH_CONNECT
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return
-        }
-            "${it.name ?: "Unknown"} (${it.address})" }
-
-        AlertDialog.Builder(this)
-            .setTitle("Select Bluetooth Device")
-            .setItems(deviceNames) { _, which ->
-                val selectedDeviceName = deviceNames[which]
-                deviceAddress = deviceMap[selectedDeviceName]?.address
-                Log.i("BarrierActivity", "Selected device: $selectedDeviceName")
-                Toast.makeText(this, "Selected $selectedDeviceName", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
 
     override fun onDestroy() {
         super.onDestroy()
+        radarView.stopSweepAnimation()
         try {
             unregisterReceiver(deviceDiscoveryReceiver)
         } catch (e: IllegalArgumentException) {
