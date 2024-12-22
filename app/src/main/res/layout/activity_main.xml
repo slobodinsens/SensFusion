@@ -26,7 +26,7 @@
             android:layout_height="0dp"
             android:layout_weight="1" />
 
-        <!-- Виджеты в нижней части -->
+        <!-- Первый ряд кнопок -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -48,26 +48,15 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:orientation="vertical"
+                    android:background="#0B0B0B"
                     android:gravity="center"
-                    android:padding="8dp"
-                    tools:ignore="ExtraText">
+                    android:orientation="vertical"
+                    android:padding="8dp">
 
                     <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_gravity="center"
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
                         android:src="@drawable/ic_settings" />
-                        //app:tint="@color/green" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Settings"
-                        android:textColor="@color/black"
-                        android:textSize="16sp"
-                        android:gravity="center" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
@@ -84,25 +73,15 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:orientation="vertical"
+                    android:background="#0B0B0B"
                     android:gravity="center"
+                    android:orientation="vertical"
                     android:padding="8dp">
 
                     <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_gravity="center"
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
                         android:src="@drawable/ic_car" />
-                        //app:tint="@color/red" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Stolen Car"
-                        android:textColor="@color/black"
-                        android:textSize="16sp"
-                        android:gravity="center" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
@@ -119,25 +98,100 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:orientation="vertical"
+                    android:background="#0B0B0B"
                     android:gravity="center"
+                    android:orientation="vertical"
                     android:padding="8dp">
 
                     <ImageView
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:layout_gravity="center"
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
                         android:src="@drawable/ic_number" />
-                        //app:tint="@color/blue" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+        </LinearLayout>
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="Car Number"
-                        android:textColor="@color/black"
-                        android:textSize="16sp"
-                        android:gravity="center" />
+        <!-- Второй ряд кнопок -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:weightSum="3"
+            android:padding="8dp">
+
+            <!-- Виджет Barrier -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/barrierWidget"
+                android:layout_width="0dp"
+                android:layout_height="120dp"
+                android:layout_weight="1"
+                android:layout_margin="8dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="#0B0B0B"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="8dp">
+
+                    <ImageView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:src="@drawable/barrier" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Виджет SOS -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/sosWidget"
+                android:layout_width="0dp"
+                android:layout_height="120dp"
+                android:layout_weight="1"
+                android:layout_margin="8dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="#0B0B0B"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="8dp">
+
+                    <ImageView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:src="@drawable/sos" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Виджет Flash -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/flashWidget"
+                android:layout_width="0dp"
+                android:layout_height="120dp"
+                android:layout_weight="1"
+                android:layout_margin="8dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="#0B0B0B"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="8dp">
+
+                    <ImageView
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:src="@drawable/flash" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
         </LinearLayout>
