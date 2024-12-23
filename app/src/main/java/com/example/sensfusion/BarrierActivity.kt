@@ -12,9 +12,11 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -27,18 +29,24 @@ class BarrierActivity : AppCompatActivity() {
     private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
     private var deviceAddress: String? = null
     private val requestCodePermissions = 1
-    private val discoveredDevices: MutableList<BluetoothDevice> = mutableListOf<BluetoothDevice>()
+    private val discoveredDevices: MutableList<BluetoothDevice> = mutableListOf()
+    private val scanDuration = 15000L
+    private var isReceiverRegistered = false
+    private var scanningDialog: AlertDialog? = null // Для управления всплывающим окном
 
     private lateinit var radarView: RadarView
+    private lateinit var connectedDeviceTextView: TextView // Для отображения подключённого устройства
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.barrier)
 
-        val openBarrierButton: CardView = findViewById(R.id.openBarrierButton)
-        val closeBarrierButton: CardView = findViewById(R.id.closeBarrierButton)
+        connectedDeviceTextView = findViewById(R.id.connectedDeviceTextView) // Инициализация TextView
         val bluetoothSettingsButton: CardView = findViewById(R.id.bluetoothSettingsButton)
         radarView = findViewById(R.id.radarView)
+
+        // Устанавливаем начальный текст TextView
+        connectedDeviceTextView.text = "No device connected"
 
         val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
 
@@ -53,32 +61,6 @@ class BarrierActivity : AppCompatActivity() {
             radarView.startSweepAnimation()
             startDeviceDiscovery()
         }
-
-//        openBarrierButton.setOnClickListener {
-//            vibrate()
-//            deviceAddress?.let {
-//                val barrier = Barrier(this)
-//                if (barrier.connectToDevice(it)) {
-//                    barrier.sendCommand("OPEN")
-//                    barrier.disconnect()
-//                } else {
-//                    Log.e("BarrierActivity", "Failed to connect to the device.")
-//                }
-//            } ?: Log.e("BarrierActivity", "No device selected.")
-//        }
-
-//        closeBarrierButton.setOnClickListener {
-//            vibrate()
-//            deviceAddress?.let {
-//                val barrier = Barrier(this)
-//                if (barrier.connectToDevice(it)) {
-//                    barrier.sendCommand("CLOSE")
-//                    barrier.disconnect()
-//                } else {
-//                    Log.e("BarrierActivity", "Failed to connect to the device.")
-//                }
-//            } ?: Log.e("BarrierActivity", "No device selected.")
-//        }
 
         checkAndRequestPermissions()
     }
@@ -118,18 +100,36 @@ class BarrierActivity : AppCompatActivity() {
         discoveredDevices.clear()
         bluetoothAdapter.startDiscovery()
 
-        val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
-        registerReceiver(deviceDiscoveryReceiver, filter)
+        if (!isReceiverRegistered) {
+            val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+            registerReceiver(deviceDiscoveryReceiver, filter)
+            isReceiverRegistered = true
+        }
 
-        AlertDialog.Builder(this)
+        // Открываем всплывающее окно сканирования
+        scanningDialog = AlertDialog.Builder(this)
             .setTitle("Scanning for devices...")
             .setNegativeButton("Stop") { dialog, _ ->
                 bluetoothAdapter.cancelDiscovery()
-                unregisterReceiver(deviceDiscoveryReceiver)
+                if (isReceiverRegistered) {
+                    unregisterReceiver(deviceDiscoveryReceiver)
+                    isReceiverRegistered = false
+                }
                 radarView.stopSweepAnimation()
                 dialog.dismiss()
             }
             .show()
+
+        Handler(mainLooper).postDelayed({
+            bluetoothAdapter.cancelDiscovery()
+            if (isReceiverRegistered) {
+                unregisterReceiver(deviceDiscoveryReceiver)
+                isReceiverRegistered = false
+            }
+            radarView.stopSweepAnimation()
+            scanningDialog?.dismiss() // Закрываем окно после завершения
+            showDiscoveredDevicesDialog()
+        }, scanDuration)
     }
 
     private val deviceDiscoveryReceiver = object : BroadcastReceiver() {
@@ -141,19 +141,91 @@ class BarrierActivity : AppCompatActivity() {
                 if (device != null && !discoveredDevices.contains(device)) {
                     discoveredDevices.add(device)
                     radarView.updateDevices(
-                        discoveredDevices.map { it.name ?: "Unknown" to rssi }
+                        discoveredDevices.map { device ->
+                            (device.name ?: "Unknown") to rssi
+                        }
                     )
                 }
             }
         }
     }
 
+    @SuppressLint("MissingPermission")
+    private fun showDiscoveredDevicesDialog() {
+        if (discoveredDevices.isEmpty()) {
+            Toast.makeText(this, "No devices found", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val deviceNames = discoveredDevices.map { it.name ?: "Unknown Device" }
+        AlertDialog.Builder(this)
+            .setTitle("Available Devices")
+            .setItems(deviceNames.toTypedArray()) { _, which ->
+                val selectedDevice = discoveredDevices[which]
+                deviceAddress = selectedDevice.address
+
+                AlertDialog.Builder(this)
+                    .setTitle("Connect to Device")
+                    .setMessage("To connect to ${selectedDevice.name}, go to Bluetooth settings.")
+                    .setPositiveButton("Open Settings") { _, _ ->
+                        val intent = Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)
+                        startActivity(intent)
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun getCurrentlyConnectedDevice(): BluetoothDevice? {
+        val bondedDevices = bluetoothAdapter?.bondedDevices ?: return null
+        for (device in bondedDevices) {
+            try {
+                // Проверяем состояние соединения через рефлексию
+                val isConnected = device.javaClass
+                    .getMethod("isConnected")
+                    .invoke(device) as Boolean
+
+                if (isConnected) {
+                    return device
+                }
+            } catch (e: Exception) {
+                Log.e("BarrierActivity", "Error checking connection state for ${device.name}: ${e.message}")
+            }
+        }
+        return null
+    }
+
+    @SuppressLint("MissingPermission")
+    override fun onResume() {
+        super.onResume()
+
+        // Закрываем диалог сканирования, если он ещё активен
+        scanningDialog?.dismiss()
+
+        radarView.stopSweepAnimation()
+
+        val connectedDevice = getCurrentlyConnectedDevice()
+        if (connectedDevice != null) {
+            // Обновляем текст TextView
+            connectedDeviceTextView.text = "Connected to: ${connectedDevice.name} (${connectedDevice.address})"
+            Log.d("BarrierActivity", "Connected to ${connectedDevice.name} (${connectedDevice.address})")
+        } else {
+            connectedDeviceTextView.text = "No device connected"
+            Log.d("BarrierActivity", "No devices connected")
+        }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
         radarView.stopSweepAnimation()
         try {
-            unregisterReceiver(deviceDiscoveryReceiver)
+            if (isReceiverRegistered) {
+                unregisterReceiver(deviceDiscoveryReceiver)
+                isReceiverRegistered = false
+            }
         } catch (e: IllegalArgumentException) {
             Log.e("BarrierActivity", "Receiver not registered: ${e.message}")
         }

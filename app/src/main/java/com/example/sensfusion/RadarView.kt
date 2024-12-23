@@ -9,7 +9,6 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.View
-import java.io.Serializable
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -42,15 +41,7 @@ class RadarView @JvmOverloads constructor(
     private var sweepAngle = 0f
     private val devices = mutableListOf<Device>()
 
-    private val handler = android.os.Handler()
-    private val sweepRunnable = object : Runnable {
-        override fun run() {
-            updateSweepAngle()
-            handler.postDelayed(this, 50)
-        }
-    }
-
-    data class Device(val name: String, val x: Float, val y: Float) : Serializable
+    data class Device(val name: String, val x: Float, val y: Float)
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -72,31 +63,36 @@ class RadarView @JvmOverloads constructor(
         }
     }
 
-    fun updateDevices(rssiList: List<Serializable>) {
+    fun updateDevices(deviceInfo: List<Pair<String, Int>>) {
         val cx = width / 2f
         val cy = height / 2f
         val radius = width / 3f
 
         devices.clear()
-        rssiList.forEach { item ->
-            if (item is Device) {
-                // Calculate the position based on the RSSI
-                val distance = radius * (1 - (item.x.toFloat() / -100f)) // Adjust 'x' to represent RSSI
-                val angle = Math.random() * 2 * Math.PI // Randomly distribute across the circle
+        deviceInfo.forEach { (name, rssi) ->
+            val distance = radius * (1 - (rssi.toFloat() / -100f)) // Normalize RSSI
+            val angle = Math.random() * 2 * Math.PI // Randomize the position
 
-                val x = (cx + distance * cos(angle)).toFloat()
-                val y = (cy + distance * sin(angle)).toFloat()
-                devices.add(Device(item.name, x, y))
-            }
+            val x = (cx + distance * cos(angle)).toFloat()
+            val y = (cy + distance * sin(angle)).toFloat()
+            devices.add(Device(name, x, y))
         }
 
-        invalidate()
+        postInvalidate() // Ensure the UI updates on the main thread
     }
 
     fun updateSweepAngle() {
         sweepAngle += 5f
         if (sweepAngle >= 360) sweepAngle = 0f
-        invalidate()
+        postInvalidate()
+    }
+
+    private val handler = android.os.Handler()
+    private val sweepRunnable = object : Runnable {
+        override fun run() {
+            updateSweepAngle()
+            handler.postDelayed(this, 50)
+        }
     }
 
     fun startSweepAnimation() {
