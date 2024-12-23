@@ -3,27 +3,10 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Камера -->
-    <androidx.camera.view.PreviewView
-        android:id="@+id/previewView"
+    <!-- WebView для отображения сайта -->
+    <WebView
+        android:id="@+id/webView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_gravity="center" />
-
-    <!-- Наложение для отрисовки боксов -->
-    <com.example.sensfusion.OverlayView
-        android:id="@+id/overlayView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_gravity="center" />
-
-    <!-- Кнопка фиксации изображения -->
-    <Button
-        android:id="@+id/captureButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center|bottom"
-        android:layout_marginBottom="32dp"
-        android:text="Capture" />
+        android:layout_height="match_parent" />
 
 </FrameLayout>
