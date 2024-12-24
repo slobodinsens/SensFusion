@@ -54,8 +54,8 @@
                     android:padding="8dp">
 
                     <ImageView
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
                         android:src="@drawable/ic_settings" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -79,8 +79,8 @@
                     android:padding="8dp">
 
                     <ImageView
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
                         android:src="@drawable/ic_car" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -104,8 +104,8 @@
                     android:padding="8dp">
 
                     <ImageView
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
                         android:src="@drawable/ic_number" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -139,8 +139,8 @@
                     android:padding="8dp">
 
                     <ImageView
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
                         android:src="@drawable/barrier" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -164,8 +164,8 @@
                     android:padding="8dp">
 
                     <ImageView
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
                         android:src="@drawable/sos" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -189,8 +189,8 @@
                     android:padding="8dp">
 
                     <ImageView
-                        android:layout_width="64dp"
-                        android:layout_height="64dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
                         android:src="@drawable/flash" />
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
