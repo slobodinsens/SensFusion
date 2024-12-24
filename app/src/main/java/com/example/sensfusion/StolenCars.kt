@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.sensfusion
 
 import android.annotation.SuppressLint
@@ -30,6 +32,7 @@ class StolenCars : AppCompatActivity() {
         webView.loadUrl("https://www.gov.il/apps/police/stolencar/")
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         // Если возможно, возвращаемся на предыдущую страницу
         if (webView.canGoBack()) {
