@@ -6,108 +6,113 @@
     android:layout_height="match_parent"
     tools:context=".BarrierActivity">
 
-    <TextView
-        android:id="@+id/connectedDeviceTextView"
+    <!-- Добавляем ScrollView -->
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:gravity="center"
-        android:text="No device connected"
-        android:textColor="@android:color/black"
-        android:textSize="16sp"
-        tools:ignore="MissingConstraints" />
-
-    <!-- Радар -->
-    <com.example.sensfusion.RadarView
-        android:id="@+id/radarView"
-        android:layout_width="300dp"
-        android:layout_height="300dp"
-        android:layout_marginTop="16dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
         app:layout_constraintTop_toTopOf="parent"
-        tools:ignore="MissingClass" />
-
-    <!-- Кнопка Открыть шлагбаум -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/openBarrierButton"
-        android:layout_width="0dp"
-        android:layout_height="120dp"
-        android:layout_margin="16dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp"
-        app:layout_constraintEnd_toStartOf="@id/closeBarrierButton"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/radarView">
+        app:layout_constraintEnd_toEndOf="parent">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
+            android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="8dp">
+            android:padding="16dp">
 
-            <ImageView
+            <TextView
+                android:id="@+id/connectedDeviceTextView"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:contentDescription="Open Barrier"
-                android:src="@drawable/barrier_open" />
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:gravity="center"
+                android:text="No device connected"
+                android:textColor="@android:color/black"
+                android:textSize="16sp" />
 
-    <!-- Кнопка Закрыть шлагбаум -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/closeBarrierButton"
-        android:layout_width="0dp"
-        android:layout_height="120dp"
-        android:layout_margin="16dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@id/openBarrierButton"
-        app:layout_constraintTop_toBottomOf="@id/radarView">
+            <!-- Радар -->
+            <com.example.sensfusion.RadarView
+                android:id="@+id/radarView"
+                android:layout_width="300dp"
+                android:layout_height="300dp"
+                android:layout_marginBottom="16dp"
+                android:layout_gravity="center"
+                tools:ignore="MissingClass" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:padding="8dp">
-
-            <ImageView
+            <!-- Кнопка Открыть шлагбаум -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/openBarrierButton"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:contentDescription="Close Barrier"
-                android:src="@drawable/barrier_closed" />
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
-
-    <!-- Кнопка Настройки Bluetooth -->
-    <androidx.cardview.widget.CardView
-        android:id="@+id/bluetoothSettingsButton"
-        android:layout_width="0dp"
-        android:layout_height="120dp"
-        android:layout_margin="16dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/openBarrierButton">
-
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:padding="8dp">
-
-            <ImageView
-                android:layout_width="379dp"
                 android:layout_height="120dp"
-                android:contentDescription="Bluetooth Settings"
-                android:src="@drawable/bluetooth" />
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="8dp">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="Open Barrier"
+                        android:src="@drawable/barrier_open" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Кнопка Закрыть шлагбаум -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/closeBarrierButton"
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="8dp">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="Close Barrier"
+                        android:src="@drawable/barrier_closed" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Кнопка Настройки Bluetooth -->
+            <androidx.cardview.widget.CardView
+                android:id="@+id/bluetoothSettingsButton"
+                android:layout_width="match_parent"
+                android:layout_height="120dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:padding="8dp">
+
+                    <ImageView
+                        android:layout_width="379dp"
+                        android:layout_height="120dp"
+                        android:contentDescription="Bluetooth Settings"
+                        android:src="@drawable/bluetooth" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
+    </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
