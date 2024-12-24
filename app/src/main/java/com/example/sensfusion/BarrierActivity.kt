@@ -32,20 +32,24 @@ class BarrierActivity : AppCompatActivity() {
     private val discoveredDevices: MutableList<BluetoothDevice> = mutableListOf()
     private val scanDuration = 15000L
     private var isReceiverRegistered = false
-    private var scanningDialog: AlertDialog? = null // Для управления всплывающим окном
+    private var scanningDialog: AlertDialog? = null
 
     private lateinit var radarView: RadarView
-    private lateinit var connectedDeviceTextView: TextView // Для отображения подключённого устройства
+    private lateinit var connectedDeviceTextView: TextView
+    private lateinit var openBarrierButton: CardView
+    private lateinit var closeBarrierButton: CardView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.barrier)
 
-        connectedDeviceTextView = findViewById(R.id.connectedDeviceTextView) // Инициализация TextView
+        // Инициализация виджетов
+        connectedDeviceTextView = findViewById(R.id.connectedDeviceTextView)
+        openBarrierButton = findViewById(R.id.openBarrierButton)
+        closeBarrierButton = findViewById(R.id.closeBarrierButton)
         val bluetoothSettingsButton: CardView = findViewById(R.id.bluetoothSettingsButton)
         radarView = findViewById(R.id.radarView)
 
-        // Устанавливаем начальный текст TextView
         connectedDeviceTextView.text = "No device connected"
 
         val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
@@ -62,7 +66,23 @@ class BarrierActivity : AppCompatActivity() {
             startDeviceDiscovery()
         }
 
+        openBarrierButton.setOnClickListener {
+            vibrate()
+            Toast.makeText(this, "Opening barrier...", Toast.LENGTH_SHORT).show()
+        }
+
+        closeBarrierButton.setOnClickListener {
+            vibrate()
+            Toast.makeText(this, "Closing barrier...", Toast.LENGTH_SHORT).show()
+        }
+
         checkAndRequestPermissions()
+        updateButtonStates(false)
+    }
+
+    private fun updateButtonStates(isConnected: Boolean) {
+        openBarrierButton.isEnabled = isConnected
+        closeBarrierButton.isEnabled = isConnected
     }
 
     private fun checkAndRequestPermissions() {
@@ -106,7 +126,6 @@ class BarrierActivity : AppCompatActivity() {
             isReceiverRegistered = true
         }
 
-        // Открываем всплывающее окно сканирования
         scanningDialog = AlertDialog.Builder(this)
             .setTitle("Scanning for devices...")
             .setNegativeButton("Stop") { dialog, _ ->
@@ -127,7 +146,7 @@ class BarrierActivity : AppCompatActivity() {
                 isReceiverRegistered = false
             }
             radarView.stopSweepAnimation()
-            scanningDialog?.dismiss() // Закрываем окно после завершения
+            scanningDialog?.dismiss()
             showDiscoveredDevicesDialog()
         }, scanDuration)
     }
@@ -148,6 +167,25 @@ class BarrierActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun getCurrentlyConnectedDevice(): BluetoothDevice? {
+        val bondedDevices = bluetoothAdapter?.bondedDevices ?: return null
+        for (device in bondedDevices) {
+            try {
+                val isConnected = device.javaClass
+                    .getMethod("isConnected")
+                    .invoke(device) as Boolean
+
+                if (isConnected) {
+                    return device
+                }
+            } catch (e: Exception) {
+                Log.e("BarrierActivity", "Error checking connection state for ${device.name}: ${e.message}")
+            }
+        }
+        return null
     }
 
     @SuppressLint("MissingPermission")
@@ -179,42 +217,19 @@ class BarrierActivity : AppCompatActivity() {
     }
 
     @SuppressLint("MissingPermission")
-    private fun getCurrentlyConnectedDevice(): BluetoothDevice? {
-        val bondedDevices = bluetoothAdapter?.bondedDevices ?: return null
-        for (device in bondedDevices) {
-            try {
-                // Проверяем состояние соединения через рефлексию
-                val isConnected = device.javaClass
-                    .getMethod("isConnected")
-                    .invoke(device) as Boolean
-
-                if (isConnected) {
-                    return device
-                }
-            } catch (e: Exception) {
-                Log.e("BarrierActivity", "Error checking connection state for ${device.name}: ${e.message}")
-            }
-        }
-        return null
-    }
-
-    @SuppressLint("MissingPermission")
     override fun onResume() {
         super.onResume()
 
-        // Закрываем диалог сканирования, если он ещё активен
         scanningDialog?.dismiss()
-
         radarView.stopSweepAnimation()
 
         val connectedDevice = getCurrentlyConnectedDevice()
         if (connectedDevice != null) {
-            // Обновляем текст TextView
             connectedDeviceTextView.text = "Connected to: ${connectedDevice.name} (${connectedDevice.address})"
-            Log.d("BarrierActivity", "Connected to ${connectedDevice.name} (${connectedDevice.address})")
+            updateButtonStates(true)
         } else {
             connectedDeviceTextView.text = "No device connected"
-            Log.d("BarrierActivity", "No devices connected")
+            updateButtonStates(false)
         }
     }
 
