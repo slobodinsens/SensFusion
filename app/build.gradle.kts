@@ -100,8 +100,8 @@ dependencies {
     implementation(libs.firebase.messaging)
 
     // TensorFlow Lite and ONNX Runtime
-    implementation(libs.tensorflow.lite.support)
-    implementation("androidx.cardview:cardview:1.0.0")
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.15.1")
-    implementation ("androidx.constraintlayout:constraintlayout:2.2.0")
+//    implementation(libs.tensorflow.lite.support)
+//    implementation("androidx.cardview:cardview:1.0.0")
+//    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.15.1")
+//    implementation ("androidx.constraintlayout:constraintlayout:2.2.0")
 }

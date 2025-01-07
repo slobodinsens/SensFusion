@@ -2,8 +2,11 @@
 
 package com.example.sensfusion
 
+import android.Manifest
+import android.app.ProgressDialog
 import android.content.ContentValues
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
@@ -14,6 +17,8 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.messaging.FirebaseMessaging
 import okhttp3.Call
@@ -36,11 +41,13 @@ class PhotoNumber : AppCompatActivity() {
 
     private val CAMERA_REQUEST_CODE = 102
     private val GALLERY_REQUEST_CODE = 103
+    private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
     private val serverUrl = "http://10.0.0.43:5000"
     private var photoUri: Uri? = null
     private lateinit var selectedImageView: ImageView
     private lateinit var inputEditText: EditText
     private var fcmToken: String? = null
+    private lateinit var progressDialog: ProgressDialog
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +59,27 @@ class PhotoNumber : AppCompatActivity() {
         val openGalleryButton: Button = findViewById(R.id.openCameraButton3)
         val sendPhotoButton: Button = findViewById(R.id.send_photo)
         val sendButton: Button = findViewById(R.id.sendButton)
+
+        // Initialize progress dialog
+        progressDialog = ProgressDialog(this).apply {
+            setMessage("Uploading...")
+            setCancelable(false)
+        }
+
+        // Request notification permission for Android 13+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    NOTIFICATION_PERMISSION_REQUEST_CODE
+                )
+            }
+        }
 
         // Get FCM token
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
@@ -88,6 +116,7 @@ class PhotoNumber : AppCompatActivity() {
             val text = inputEditText.text.toString().trim()
             if (text.isNotBlank()) {
                 val uniqueToken = UUID.randomUUID().toString()
+                showProgress()
                 sendTextToServer(text, uniqueToken, view)
             } else {
                 showSnackbar(view, "Enter text to send.")
@@ -98,6 +127,7 @@ class PhotoNumber : AppCompatActivity() {
         sendPhotoButton.setOnClickListener { view ->
             if (photoUri != null) {
                 val uniqueToken = UUID.randomUUID().toString()
+                showProgress()
                 sendImageToServer(photoUri!!, uniqueToken, view)
             } else {
                 showSnackbar(view, "No photo to send.")
@@ -105,7 +135,6 @@ class PhotoNumber : AppCompatActivity() {
         }
     }
 
-    @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == RESULT_OK) {
@@ -156,11 +185,15 @@ class PhotoNumber : AppCompatActivity() {
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 runOnUiThread {
-                    showSnackbar(view, "Failed to send text.")
+                    hideProgress()
+                    showSnackbar(view, "Failed to send text: ${e.localizedMessage}")
                 }
             }
 
             override fun onResponse(call: Call, response: Response) {
+                runOnUiThread {
+                    hideProgress()
+                }
                 response.use {
                     val responseBody = response.body?.string()
                     if (response.isSuccessful && responseBody != null) {
@@ -183,7 +216,10 @@ class PhotoNumber : AppCompatActivity() {
         val url = "$serverUrl/api/upload-image"
 
         val inputStream = contentResolver.openInputStream(imageUri)
-        val imageData = inputStream?.readBytes() ?: return showSnackbar(view, "Failed to read image.")
+        val imageData = inputStream?.readBytes() ?: return runOnUiThread {
+            hideProgress()
+            showSnackbar(view, "Failed to read image.")
+        }
 
         val requestBody = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
@@ -204,11 +240,15 @@ class PhotoNumber : AppCompatActivity() {
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 runOnUiThread {
-                    showSnackbar(view, "Failed to upload image.")
+                    hideProgress()
+                    showSnackbar(view, "Failed to upload image: ${e.localizedMessage}")
                 }
             }
 
             override fun onResponse(call: Call, response: Response) {
+                runOnUiThread {
+                    hideProgress()
+                }
                 response.use {
                     val responseBody = response.body?.string()
                     if (response.isSuccessful && responseBody != null) {
@@ -234,5 +274,15 @@ class PhotoNumber : AppCompatActivity() {
 
     private fun showSnackbar(view: View, message: String) {
         Snackbar.make(view, message, Snackbar.LENGTH_LONG).show()
+    }
+
+    private fun showProgress() {
+        progressDialog.show()
+    }
+
+    private fun hideProgress() {
+        if (progressDialog.isShowing) {
+            progressDialog.dismiss()
+        }
     }
 }
