@@ -39,10 +39,16 @@ import java.util.UUID
 
 class PhotoNumber : AppCompatActivity() {
 
+    // Server URL
+    private val serverUrl = "http://10.0.0.43:5000"
+    private val sendTextUrl = "$serverUrl/api/send-text"
+    private val uploadImageUrl = "$serverUrl/api/upload-image"
+
+    // Request Codes
     private val CAMERA_REQUEST_CODE = 102
     private val GALLERY_REQUEST_CODE = 103
     private val NOTIFICATION_PERMISSION_REQUEST_CODE = 1001
-    private val serverUrl = "http://10.0.0.43:5000"
+
     private var photoUri: Uri? = null
     private lateinit var selectedImageView: ImageView
     private lateinit var inputEditText: EditText
@@ -53,6 +59,7 @@ class PhotoNumber : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.photo_number)
 
+        // Initialize UI components
         selectedImageView = findViewById(R.id.selectedImageView)
         inputEditText = findViewById(R.id.editTextNumber)
         val openCameraButton: Button = findViewById(R.id.openCameraButton)
@@ -68,16 +75,8 @@ class PhotoNumber : AppCompatActivity() {
 
         // Request notification permission for Android 13+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                ActivityCompat.requestPermissions(
-                    this,
-                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                    NOTIFICATION_PERMISSION_REQUEST_CODE
-                )
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_REQUEST_CODE)
             }
         }
 
@@ -170,14 +169,13 @@ class PhotoNumber : AppCompatActivity() {
     }
 
     private fun sendTextToServer(text: String, token: String, view: View) {
-        val url = "$serverUrl/api/send-text"
         val requestBody = FormBody.Builder()
             .add("text", text)
             .add("fcm_token", token)
             .build()
 
         val request = Request.Builder()
-            .url(url)
+            .url(sendTextUrl)
             .post(requestBody)
             .build()
 
@@ -191,21 +189,15 @@ class PhotoNumber : AppCompatActivity() {
             }
 
             override fun onResponse(call: Call, response: Response) {
-                runOnUiThread {
-                    hideProgress()
-                }
+                runOnUiThread { hideProgress() }
                 response.use {
                     val responseBody = response.body?.string()
                     if (response.isSuccessful && responseBody != null) {
                         val jsonResponse = JSONObject(responseBody)
                         val message = jsonResponse.optString("message", "No response message.")
-                        runOnUiThread {
-                            showSnackbar(view, message)
-                        }
+                        runOnUiThread { showSnackbar(view, message) }
                     } else {
-                        runOnUiThread {
-                            showSnackbar(view, "Error sending text: ${response.code}")
-                        }
+                        runOnUiThread { showSnackbar(view, "Error sending text: ${response.code}") }
                     }
                 }
             }
@@ -213,8 +205,6 @@ class PhotoNumber : AppCompatActivity() {
     }
 
     private fun sendImageToServer(imageUri: Uri, token: String, view: View) {
-        val url = "$serverUrl/api/upload-image"
-
         val inputStream = contentResolver.openInputStream(imageUri)
         val imageData = inputStream?.readBytes() ?: return runOnUiThread {
             hideProgress()
@@ -223,16 +213,12 @@ class PhotoNumber : AppCompatActivity() {
 
         val requestBody = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
-            .addFormDataPart(
-                "image",
-                "uploaded_image.jpg",
-                imageData.toRequestBody("image/jpeg".toMediaTypeOrNull())
-            )
+            .addFormDataPart("image", "uploaded_image.jpg", imageData.toRequestBody("image/jpeg".toMediaTypeOrNull()))
             .addFormDataPart("fcm_token", token)
             .build()
 
         val request = Request.Builder()
-            .url(url)
+            .url(uploadImageUrl)
             .post(requestBody)
             .build()
 
@@ -246,21 +232,15 @@ class PhotoNumber : AppCompatActivity() {
             }
 
             override fun onResponse(call: Call, response: Response) {
-                runOnUiThread {
-                    hideProgress()
-                }
+                runOnUiThread { hideProgress() }
                 response.use {
                     val responseBody = response.body?.string()
                     if (response.isSuccessful && responseBody != null) {
                         val jsonResponse = JSONObject(responseBody)
                         val message = jsonResponse.optString("message", "No response message.")
-                        runOnUiThread {
-                            showSnackbar(view, message)
-                        }
+                        runOnUiThread { showSnackbar(view, message) }
                     } else {
-                        runOnUiThread {
-                            showSnackbar(view, "Error uploading image: ${response.code}")
-                        }
+                        runOnUiThread { showSnackbar(view, "Error uploading image: ${response.code}") }
                     }
                 }
             }
