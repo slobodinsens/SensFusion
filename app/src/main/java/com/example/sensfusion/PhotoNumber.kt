@@ -9,25 +9,34 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.messaging.FirebaseMessaging
-import okhttp3.*
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
 
 class PhotoNumber : AppCompatActivity() {
 
     private val CAMERA_REQUEST_CODE = 102
     private val GALLERY_REQUEST_CODE = 103
-    private val serverUrl = "http://10.0.0.43:5000/process"
+    private val serverUrl = "http://10.0.0.43:5000"
     private var photoUri: Uri? = null
     private lateinit var selectedImageView: ImageView
     private lateinit var inputEditText: EditText
@@ -44,7 +53,7 @@ class PhotoNumber : AppCompatActivity() {
         val sendPhotoButton: Button = findViewById(R.id.send_photo)
         val sendButton: Button = findViewById(R.id.sendButton)
 
-        // Получение FCM-токена
+        // Get FCM token
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (!task.isSuccessful) {
                 Log.w("FCM Token", "Fetching FCM registration token failed", task.exception)
@@ -54,7 +63,7 @@ class PhotoNumber : AppCompatActivity() {
             Log.d("FCM Token", "Token: $fcmToken")
         }
 
-        // Обработчик для захвата фото с камеры
+        // Open camera
         openCameraButton.setOnClickListener {
             val uri = createImageUri()
             if (uri != null) {
@@ -64,40 +73,34 @@ class PhotoNumber : AppCompatActivity() {
                 }
                 startActivityForResult(cameraIntent, CAMERA_REQUEST_CODE)
             } else {
-                showToast("Failed to create image file.")
+                showSnackbar(it, "Failed to create image file.")
             }
         }
 
-        // Обработчик для открытия галереи
+        // Open gallery
         openGalleryButton.setOnClickListener {
             val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
             startActivityForResult(galleryIntent, GALLERY_REQUEST_CODE)
         }
 
-        // Обработчик для отправки текста на сервер
-        sendButton.setOnClickListener {
+        // Send text to server
+        sendButton.setOnClickListener { view ->
             val text = inputEditText.text.toString().trim()
-            if (text.isNotBlank() && fcmToken != null) {
-                sendTextToServer(text, fcmToken!!) { response ->
-                    runOnUiThread {
-                        showToast(response)
-                    }
-                }
+            if (text.isNotBlank()) {
+                val uniqueToken = UUID.randomUUID().toString()
+                sendTextToServer(text, uniqueToken, view)
             } else {
-                showToast("Введите текст для отправки или ошибка FCM.")
+                showSnackbar(view, "Enter text to send.")
             }
         }
 
-        // Обработчик для отправки фото на сервер
-        sendPhotoButton.setOnClickListener {
-            if (photoUri != null && fcmToken != null) {
-                sendImageToServer(photoUri!!, fcmToken!!) { response ->
-                    runOnUiThread {
-                        showToast(response)
-                    }
-                }
+        // Send photo to server
+        sendPhotoButton.setOnClickListener { view ->
+            if (photoUri != null) {
+                val uniqueToken = UUID.randomUUID().toString()
+                sendImageToServer(photoUri!!, uniqueToken, view)
             } else {
-                showToast("No photo to send or error with FCM.")
+                showSnackbar(view, "No photo to send.")
             }
         }
     }
@@ -113,7 +116,7 @@ class PhotoNumber : AppCompatActivity() {
                             BitmapFactory.decodeStream(it)
                         }
                         selectedImageView.setImageBitmap(bitmap)
-                    } ?: showToast("Failed to capture image.")
+                    } ?: showSnackbar(selectedImageView, "Failed to capture image.")
                 }
                 GALLERY_REQUEST_CODE -> {
                     photoUri = data?.data
@@ -122,7 +125,7 @@ class PhotoNumber : AppCompatActivity() {
                             BitmapFactory.decodeStream(it)
                         }
                         selectedImageView.setImageBitmap(bitmap)
-                    } ?: showToast("No image selected.")
+                    } ?: showSnackbar(selectedImageView, "No image selected.")
                 }
             }
         }
@@ -137,7 +140,7 @@ class PhotoNumber : AppCompatActivity() {
         return contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
     }
 
-    private fun sendTextToServer(text: String, token: String, callback: (String) -> Unit) {
+    private fun sendTextToServer(text: String, token: String, view: View) {
         val url = "$serverUrl/api/send-text"
         val requestBody = FormBody.Builder()
             .add("text", text)
@@ -152,8 +155,9 @@ class PhotoNumber : AppCompatActivity() {
         val client = OkHttpClient()
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                e.printStackTrace()
-                callback("Failed to send text")
+                runOnUiThread {
+                    showSnackbar(view, "Failed to send text.")
+                }
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -161,21 +165,25 @@ class PhotoNumber : AppCompatActivity() {
                     val responseBody = response.body?.string()
                     if (response.isSuccessful && responseBody != null) {
                         val jsonResponse = JSONObject(responseBody)
-                        val message = jsonResponse.optString("message", "No response message")
-                        callback(message)
+                        val message = jsonResponse.optString("message", "No response message.")
+                        runOnUiThread {
+                            showSnackbar(view, message)
+                        }
                     } else {
-                        callback("Error sending text: ${response.code}")
+                        runOnUiThread {
+                            showSnackbar(view, "Error sending text: ${response.code}")
+                        }
                     }
                 }
             }
         })
     }
 
-    private fun sendImageToServer(imageUri: Uri, token: String, callback: (String) -> Unit) {
+    private fun sendImageToServer(imageUri: Uri, token: String, view: View) {
         val url = "$serverUrl/api/upload-image"
 
         val inputStream = contentResolver.openInputStream(imageUri)
-        val imageData = inputStream?.readBytes() ?: return callback("Failed to read image")
+        val imageData = inputStream?.readBytes() ?: return showSnackbar(view, "Failed to read image.")
 
         val requestBody = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
@@ -195,8 +203,9 @@ class PhotoNumber : AppCompatActivity() {
         val client = OkHttpClient()
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                e.printStackTrace()
-                callback("Failed to upload image")
+                runOnUiThread {
+                    showSnackbar(view, "Failed to upload image.")
+                }
             }
 
             override fun onResponse(call: Call, response: Response) {
@@ -204,10 +213,14 @@ class PhotoNumber : AppCompatActivity() {
                     val responseBody = response.body?.string()
                     if (response.isSuccessful && responseBody != null) {
                         val jsonResponse = JSONObject(responseBody)
-                        val message = jsonResponse.optString("message", "No response message")
-                        callback(message)
+                        val message = jsonResponse.optString("message", "No response message.")
+                        runOnUiThread {
+                            showSnackbar(view, message)
+                        }
                     } else {
-                        callback("Error uploading image: ${response.code}")
+                        runOnUiThread {
+                            showSnackbar(view, "Error uploading image: ${response.code}")
+                        }
                     }
                 }
             }
@@ -219,7 +232,7 @@ class PhotoNumber : AppCompatActivity() {
         return timeStamp.format(Date())
     }
 
-    private fun showToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    private fun showSnackbar(view: View, message: String) {
+        Snackbar.make(view, message, Snackbar.LENGTH_LONG).show()
     }
 }
