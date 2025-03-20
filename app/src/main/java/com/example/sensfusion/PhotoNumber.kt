@@ -32,15 +32,21 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
+import java.security.cert.X509Certificate
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 class PhotoNumber : AppCompatActivity() {
 
-    // Server URL
-    private val serverUrl = "http://10.0.0.43:5000"
+    // Server URL - Replace with your computer's local IP address
+    private val serverUrl = "https://192.168.1.108:5000"  // For Android Emulator
+    // If using a physical device, use your computer's local IP address like:
+    // private val serverUrl = "http://192.168.1.xxx:8443"  // Replace xxx with your actual IP
     private val sendTextUrl = "$serverUrl/api/send-text"
     private val uploadImageUrl = "$serverUrl/api/upload-image"
 
@@ -168,7 +174,25 @@ class PhotoNumber : AppCompatActivity() {
         return contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
     }
 
+    private fun getUnsafeOkHttpClient(): OkHttpClient {
+        val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
+            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        })
+
+        val sslContext = SSLContext.getInstance("SSL")
+        sslContext.init(null, trustAllCerts, java.security.SecureRandom())
+
+        return OkHttpClient.Builder()
+            .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
+            .hostnameVerifier { _, _ -> true }
+            .build()
+    }
+
     private fun sendTextToServer(text: String, token: String, view: View) {
+        Log.d("Network", "Attempting to send text to: $sendTextUrl")
+        
         val requestBody = FormBody.Builder()
             .add("text", text)
             .add("fcm_token", token)
@@ -179,25 +203,54 @@ class PhotoNumber : AppCompatActivity() {
             .post(requestBody)
             .build()
 
-        val client = OkHttpClient()
+        val client = getUnsafeOkHttpClient()
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
+                Log.e("Network", "Failed to send text", e)
                 runOnUiThread {
                     hideProgress()
-                    showSnackbar(view, "Failed to send text: ${e.localizedMessage}")
+                    val errorMessage = when {
+                        e.message?.contains("Failed to connect") == true -> 
+                            "Cannot connect to server. Please check if the server is running and the IP address is correct."
+                        e.message?.contains("timeout") == true -> 
+                            "Connection timed out. Please check your network connection."
+                        else -> "Failed to send text: ${e.localizedMessage}"
+                    }
+                    showSnackbar(view, errorMessage)
                 }
             }
 
             override fun onResponse(call: Call, response: Response) {
+                Log.d("Network", "Response code: ${response.code}")
+                Log.d("Network", "Response headers: ${response.headers}")
+                
                 runOnUiThread { hideProgress() }
                 response.use {
                     val responseBody = response.body?.string()
-                    if (response.isSuccessful && responseBody != null) {
-                        val jsonResponse = JSONObject(responseBody)
-                        val message = jsonResponse.optString("message", "No response message.")
-                        runOnUiThread { showSnackbar(view, message) }
-                    } else {
-                        runOnUiThread { showSnackbar(view, "Error sending text: ${response.code}") }
+                    Log.d("Network", "Response body: $responseBody")
+                    
+                    when (response.code) {
+                        404 -> {
+                            runOnUiThread { 
+                                showSnackbar(view, "Server endpoint not found. Please check the server URL and API endpoints.")
+                            }
+                        }
+                        500 -> {
+                            runOnUiThread { 
+                                showSnackbar(view, "Server error. Please try again later.")
+                            }
+                        }
+                        else -> {
+                            if (response.isSuccessful && responseBody != null) {
+                                val jsonResponse = JSONObject(responseBody)
+                                val message = jsonResponse.optString("message", "No response message.")
+                                runOnUiThread { showSnackbar(view, message) }
+                            } else {
+                                runOnUiThread { 
+                                    showSnackbar(view, "Error sending text: ${response.code} - ${response.message}")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -205,6 +258,8 @@ class PhotoNumber : AppCompatActivity() {
     }
 
     private fun sendImageToServer(imageUri: Uri, token: String, view: View) {
+        Log.d("Network", "Attempting to send image to: $uploadImageUrl")
+        
         val inputStream = contentResolver.openInputStream(imageUri)
         val imageData = inputStream?.readBytes() ?: return runOnUiThread {
             hideProgress()
@@ -222,25 +277,54 @@ class PhotoNumber : AppCompatActivity() {
             .post(requestBody)
             .build()
 
-        val client = OkHttpClient()
+        val client = getUnsafeOkHttpClient()
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
+                Log.e("Network", "Failed to upload image", e)
                 runOnUiThread {
                     hideProgress()
-                    showSnackbar(view, "Failed to upload image: ${e.localizedMessage}")
+                    val errorMessage = when {
+                        e.message?.contains("Failed to connect") == true -> 
+                            "Cannot connect to server. Please check if the server is running and the IP address is correct."
+                        e.message?.contains("timeout") == true -> 
+                            "Connection timed out. Please check your network connection."
+                        else -> "Failed to upload image: ${e.localizedMessage}"
+                    }
+                    showSnackbar(view, errorMessage)
                 }
             }
 
             override fun onResponse(call: Call, response: Response) {
+                Log.d("Network", "Response code: ${response.code}")
+                Log.d("Network", "Response headers: ${response.headers}")
+                
                 runOnUiThread { hideProgress() }
                 response.use {
                     val responseBody = response.body?.string()
-                    if (response.isSuccessful && responseBody != null) {
-                        val jsonResponse = JSONObject(responseBody)
-                        val message = jsonResponse.optString("message", "No response message.")
-                        runOnUiThread { showSnackbar(view, message) }
-                    } else {
-                        runOnUiThread { showSnackbar(view, "Error uploading image: ${response.code}") }
+                    Log.d("Network", "Response body: $responseBody")
+                    
+                    when (response.code) {
+                        404 -> {
+                            runOnUiThread { 
+                                showSnackbar(view, "Server endpoint not found. Please check the server URL and API endpoints.")
+                            }
+                        }
+                        500 -> {
+                            runOnUiThread { 
+                                showSnackbar(view, "Server error. Please try again later.")
+                            }
+                        }
+                        else -> {
+                            if (response.isSuccessful && responseBody != null) {
+                                val jsonResponse = JSONObject(responseBody)
+                                val message = jsonResponse.optString("message", "No response message.")
+                                runOnUiThread { showSnackbar(view, message) }
+                            } else {
+                                runOnUiThread { 
+                                    showSnackbar(view, "Error uploading image: ${response.code} - ${response.message}")
+                                }
+                            }
+                        }
                     }
                 }
             }

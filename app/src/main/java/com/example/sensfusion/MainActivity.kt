@@ -13,24 +13,45 @@ import android.os.Handler
 import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.util.Log
 import android.view.animation.AnimationUtils
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        private const val TAG = "MainActivity"
+    }
 
     private var isFlashOn = false
     private var isSosActive = false
     private lateinit var cameraManager: CameraManager
     private lateinit var cameraId: String
     private val handler = Handler(Looper.getMainLooper())
+    private val CAMERA_PERMISSION_REQUEST_CODE = 100
+    private val SOS_PERMISSION_REQUEST_CODE = 101
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // Get FCM token
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w(TAG, "Fetching FCM registration token failed", task.exception)
+                return@addOnCompleteListener
+            }
+
+            // Get new FCM registration token
+            val token = task.result
+            Log.d(TAG, "FCM Token: $token")
+            Toast.makeText(baseContext, "FCM Token: $token", Toast.LENGTH_SHORT).show()
+        }
 
         // Initialize widgets
         val settingsWidget: CardView = findViewById(R.id.settingsWidget)
@@ -44,8 +65,18 @@ class MainActivity : AppCompatActivity() {
         val widgetClickAnimation = AnimationUtils.loadAnimation(this, R.anim.widget_click_animation)
 
         // Initialize CameraManager
-        cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        cameraId = cameraManager.cameraIdList[0] // Use the first camera
+        try {
+            cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+            if (cameraManager.cameraIdList.isNotEmpty()) {
+                cameraId = cameraManager.cameraIdList[0]
+            } else {
+                Toast.makeText(this, "No camera available", Toast.LENGTH_SHORT).show()
+                flashWidget.isEnabled = false
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to initialize camera", Toast.LENGTH_SHORT).show()
+            flashWidget.isEnabled = false
+        }
 
         // Vibration method
         fun vibrate() {
@@ -88,35 +119,78 @@ class MainActivity : AppCompatActivity() {
         sosWidget.setOnClickListener {
             it.startAnimation(widgetClickAnimation)
             vibrate()
-            // Show confirmation dialog
-            showSosConfirmationDialog()
+            checkSosPermissions()
         }
 
         flashWidget.setOnClickListener {
             it.startAnimation(widgetClickAnimation)
             vibrate()
-            // Show flash mode selection dialog
+            checkCameraPermissions()
+        }
+    }
+
+    private fun checkCameraPermissions() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_PERMISSION_REQUEST_CODE)
+        } else {
             showFlashModeDialog()
+        }
+    }
+
+    private fun checkSosPermissions() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CALL_PHONE), SOS_PERMISSION_REQUEST_CODE)
+        } else {
+            showSosConfirmationDialog()
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        when (requestCode) {
+            CAMERA_PERMISSION_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    showFlashModeDialog()
+                } else {
+                    Toast.makeText(this, "Camera permission is required for flashlight", Toast.LENGTH_SHORT).show()
+                }
+            }
+            SOS_PERMISSION_REQUEST_CODE -> {
+                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    showSosConfirmationDialog()
+                } else {
+                    Toast.makeText(this, "Phone permission is required for SOS calls", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
     private fun toggleFlashlight() {
         try {
+            if (!::cameraId.isInitialized) {
+                Toast.makeText(this, "Camera not available", Toast.LENGTH_SHORT).show()
+                return
+            }
             isFlashOn = !isFlashOn
             cameraManager.setTorchMode(cameraId, isFlashOn)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Toast.makeText(this, "Failed to toggle flashlight: ${e.message}", Toast.LENGTH_SHORT).show()
+            isFlashOn = false
         }
     }
 
     private fun startSosFlashlight() {
-        if (isSosActive) return // Если SOS уже активен, ничего не делать
+        if (isSosActive) return
+        if (!::cameraId.isInitialized) {
+            Toast.makeText(this, "Camera not available", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
         isSosActive = true
-
         val sosPattern = listOf(
-            Pair(3, 2), // 3 короткие вспышки с частотой 2 Гц (0.5 сек)
-            Pair(3, 1), // 3 длинные вспышки с частотой 1 Гц (1 сек)
-            Pair(3, 2)  // 3 короткие вспышки с частотой 2 Гц (0.5 сек)
+            Pair(3, 2), // 3 short flashes at 2 Hz (0.5 sec)
+            Pair(3, 1), // 3 long flashes at 1 Hz (1 sec)
+            Pair(3, 2)  // 3 short flashes at 2 Hz (0.5 sec)
         )
 
         var sequenceIndex = 0
@@ -138,7 +212,9 @@ class MainActivity : AppCompatActivity() {
                     try {
                         cameraManager.setTorchMode(cameraId, isFlashOn)
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        Toast.makeText(this@MainActivity, "Failed to control flashlight: ${e.message}", Toast.LENGTH_SHORT).show()
+                        stopSosFlashlight()
+                        return
                     }
                     flashCount++
                     handler.postDelayed(this, duration)
@@ -154,9 +230,11 @@ class MainActivity : AppCompatActivity() {
     private fun stopSosFlashlight() {
         isSosActive = false
         try {
-            cameraManager.setTorchMode(cameraId, false) // Выключаем фонарь
+            if (::cameraId.isInitialized) {
+                cameraManager.setTorchMode(cameraId, false)
+            }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Toast.makeText(this, "Failed to stop flashlight: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -187,12 +265,12 @@ class MainActivity : AppCompatActivity() {
             .setTitle("Emergency Call")
             .setMessage("Are you sure you want to call SOS?")
             .setPositiveButton("Confirm") { _, _ ->
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CALL_PHONE), 1)
-                } else {
-                    val callIntent = Intent(Intent.ACTION_CALL)
-                    callIntent.data = Uri.parse("tel:999")
+                val callIntent = Intent(Intent.ACTION_CALL)
+                callIntent.data = Uri.parse("tel:999")
+                try {
                     startActivity(callIntent)
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Failed to initiate call: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
             .setNegativeButton("Cancel") { dialog, _ ->
@@ -201,5 +279,11 @@ class MainActivity : AppCompatActivity() {
             .create()
 
         alertDialog.show()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        stopSosFlashlight()
+        handler.removeCallbacksAndMessages(null)
     }
 }

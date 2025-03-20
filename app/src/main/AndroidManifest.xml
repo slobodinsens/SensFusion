@@ -35,6 +35,9 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
 
+    <!-- Notification Permissions -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Features -->
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
@@ -75,7 +78,8 @@
         <activity
             android:name=".SplashActivity"
             android:exported="true"
-            android:theme="@style/Theme.AppCompat.NoActionBar">
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            tools:ignore="Instantiatable">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -85,27 +89,32 @@
         <!-- Main Activity -->
         <activity
             android:name=".MainActivity"
-            android:exported="true" />
+            android:exported="true"
+            tools:ignore="Instantiatable" />
 
         <!-- Barrier Activity -->
         <activity
             android:name=".BarrierActivity"
-            android:exported="true" />
+            android:exported="true"
+            tools:ignore="Instantiatable" />
 
         <!-- StolenCars Activity -->
         <activity
             android:name=".StolenCars"
-            tools:ignore="MissingClass" />
+            android:exported="true"
+            tools:ignore="Instantiatable" />
 
         <!-- EmailPassword Activity -->
         <activity
             android:name=".EmailPassword"
-            tools:ignore="MissingClass" />
+            android:exported="true"
+            tools:ignore="Instantiatable" />
 
         <!-- PhotoNumber Activity -->
         <activity
             android:name=".PhotoNumber"
-            tools:ignore="MissingClass" />
+            android:exported="true"
+            tools:ignore="Instantiatable" />
 
     </application>
 </manifest>
